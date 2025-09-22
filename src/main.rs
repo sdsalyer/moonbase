@@ -76,6 +76,7 @@ fn main() -> BbsResult<()> {
                     continue;
                 }
 
+                // TODO: Fix unwraps
                 let peer_addr = stream
                     .peer_addr()
                     .unwrap_or_else(|_| "unknown".parse().unwrap());
@@ -97,6 +98,7 @@ fn main() -> BbsResult<()> {
                     }
                 });
             }
+
             Err(e) => {
                 eprintln!("! Error accepting connection: {}", e);
             }
@@ -160,9 +162,10 @@ fn handle_client(stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()> {
     session.run(stream)
 }
 
-fn send_rejection_message(mut stream: TcpStream, config: Arc<BbsConfig>) -> std::io::Result<()> {
+fn send_rejection_message(mut stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()> {
     // Create a simple box renderer for the rejection message
-    let box_renderer = crate::box_renderer::BoxRenderer::new(config.ui.box_style, config.ui.use_colors);
+    let box_renderer =
+        crate::box_renderer::BoxRenderer::new(config.ui.box_style, config.ui.use_colors);
 
     let message = "Sorry, the BBS has reached its maximum number of concurrent connections. Please try again later.";
 

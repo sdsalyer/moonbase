@@ -1,4 +1,4 @@
-use super::{Menu, MenuScreen, MenuAction, MenuData, MenuRender};
+use super::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
 use crate::box_renderer::MenuItem;
 
 /// Bulletin menu - can have state like current bulletin, filters, etc.

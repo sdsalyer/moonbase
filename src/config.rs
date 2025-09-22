@@ -337,7 +337,6 @@ welcome_pause_ms = {}
             self.ui.welcome_pause_ms,
         )
     }
-
 }
 
 #[derive(Debug)]

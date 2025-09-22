@@ -1,7 +1,7 @@
 use crate::box_renderer::{BoxRenderer, BoxStyle};
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
-use crate::menu::{Menu, MenuScreen, MenuAction, MenuData, MenuRender};
+use crate::menu::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
 use crossterm::{
     cursor,
     style::{Color, Print, ResetColor, SetForegroundColor},
@@ -212,7 +212,6 @@ Location: {}
             Some(Color::Magenta),
         )?;
 
-
         stream.queue(Print("\nPress Enter to continue..."))?;
         stream.flush()?;
 
@@ -338,8 +337,13 @@ Location: {}
     fn menu_show(&self, stream: &mut TcpStream, render: &MenuRender) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
-        self.box_renderer
-            .render_menu(stream, &render.title, &render.items, self.config.ui.menu_width, None)?;
+        self.box_renderer.render_menu(
+            stream,
+            &render.title,
+            &render.items,
+            self.config.ui.menu_width,
+            None,
+        )?;
         Ok(())
     }
 
@@ -354,8 +358,13 @@ Location: {}
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
-        self.box_renderer
-            .render_message_box(stream, title, message, self.config.ui.menu_width, color)?;
+        self.box_renderer.render_message_box(
+            stream,
+            title,
+            message,
+            self.config.ui.menu_width,
+            color,
+        )?;
 
         stream.queue(Print("\nPress Enter to continue..."))?;
         stream.flush()?;
