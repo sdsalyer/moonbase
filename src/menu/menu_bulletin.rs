@@ -4,33 +4,33 @@ use crate::box_renderer::MenuItem;
 /// Bulletin menu - can have state like current bulletin, filters, etc.
 pub struct BulletinMenu {
     // Example of menu-specific state
-    current_bulletin_id: Option<u32>,
+    // current_bulletin_id: Option<u32>,
     show_read_bulletins: bool,
 }
 
 impl BulletinMenu {
     pub fn new() -> Self {
         Self {
-            current_bulletin_id: None,
+            // current_bulletin_id: None,
             show_read_bulletins: true,
         }
     }
 
-    /// Example of menu-specific method
-    pub fn set_filter(&mut self, show_read: bool) {
-        self.show_read_bulletins = show_read;
-    }
+    // Example of menu-specific method
+    // pub fn set_filter(&mut self, show_read: bool) {
+    //     self.show_read_bulletins = show_read;
+    // }
 }
 
 impl Menu for BulletinMenu {
-    fn name(&self) -> &'static str {
-        "Bulletin Board"
-    }
+    // fn name(&self) -> &'static str {
+    //     "Bulletin Board"
+    // }
 
     fn render(&self, data: MenuData) -> MenuRender {
         if !data.config.features.bulletins_enabled {
             let items = vec![
-                MenuItem::info("⚠️  Bulletin Board has been disabled by the SysOp."),
+                MenuItem::info("!  Bulletin Board has been disabled by the SysOp."),
                 MenuItem::info(&format!(
                     "Contact {} for more information.",
                     data.config.bbs.sysop_name
@@ -43,16 +43,16 @@ impl Menu for BulletinMenu {
 
         let mut items = vec![];
 
-        items.push(MenuItem::info("📋 Recent Bulletins:"));
+        items.push(MenuItem::info("> Recent Bulletins:"));
         items.push(MenuItem::info(""));
 
         let welcome_msg = format!(
-            "• Welcome to {}! - Posted by {}",
+            "* Welcome to {}! - Posted by {}",
             data.config.bbs.name, data.config.bbs.sysop_name
         );
         items.push(MenuItem::info(&welcome_msg));
-        items.push(MenuItem::info("• System maintenance tonight - SysOp"));
-        items.push(MenuItem::info("• New features coming soon - Admin"));
+        items.push(MenuItem::info("* System maintenance tonight - SysOp"));
+        items.push(MenuItem::info("* New features coming soon - Admin"));
 
         // Show filter status (example of using menu state)
         if !self.show_read_bulletins {

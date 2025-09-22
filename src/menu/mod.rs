@@ -6,8 +6,6 @@ pub mod menu_main;
 
 use crate::box_renderer::MenuItem;
 use crate::config::BbsConfig;
-use crate::errors::{BbsError, BbsResult};
-use crossterm::style::Color;
 
 /// Current menu state
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -22,7 +20,7 @@ pub enum CurrentMenu {
 /// Actions that menus can return
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
-    Stay,
+    // Stay,
     GoTo(CurrentMenu),
     Login,
     Logout,
@@ -66,13 +64,13 @@ pub struct MenuRender {
 }
 
 impl MenuRender {
-    pub fn new(title: &str, prompt: &str) -> Self {
-        Self {
-            title: title.to_string(),
-            items: Vec::new(),
-            prompt: prompt.to_string(),
-        }
-    }
+    // pub fn new(title: &str, prompt: &str) -> Self {
+    //     Self {
+    //         title: title.to_string(),
+    //         items: Vec::new(),
+    //         prompt: prompt.to_string(),
+    //     }
+    // }
 
     pub fn with_items(title: &str, items: Vec<MenuItem>, prompt: &str) -> Self {
         Self {
@@ -83,13 +81,13 @@ impl MenuRender {
     }
 }
 
-/// Display interface that session provides to show menu output
-pub trait Display {
-    fn show_menu(&mut self, render: &MenuRender) -> BbsResult<()>;
-    fn show_message(&mut self, title: &str, message: &str, color: Option<Color>) -> BbsResult<()>;
-    fn show_feature_disabled(&mut self, feature_name: &str, sysop_name: &str) -> BbsResult<()>;
-}
-
+// Display interface that session provides to show menu output
+// pub trait Display {
+//     fn show_menu(&mut self, render: &MenuRender) -> BbsResult<()>;
+//     fn show_message(&mut self, title: &str, message: &str, color: Option<Color>) -> BbsResult<()>;
+//     fn show_feature_disabled(&mut self, feature_name: &str, sysop_name: &str) -> BbsResult<()>;
+// }
+//
 /// The Menu trait - clean interface with no I/O dependencies
 pub trait Menu {
     /// Render the menu - pure function that returns display data
@@ -98,8 +96,8 @@ pub trait Menu {
     /// Handle user input - pure function that returns an action
     fn handle_input(&self, data: MenuData, input: &str) -> MenuAction;
 
-    /// Optional method with default implementation for menu name
-    fn name(&self) -> &'static str {
-        "Menu"
-    }
+    // Optional method with default implementation for menu name
+    // fn name(&self) -> &'static str {
+    //     "Menu"
+    // }
 }

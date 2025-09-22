@@ -11,9 +11,9 @@ impl MainMenu {
 }
 
 impl Menu for MainMenu {
-    fn name(&self) -> &'static str {
-        "Main Menu"
-    }
+    // fn name(&self) -> &'static str {
+    //     "Main Menu"
+    // }
 
     fn render(&self, data: MenuData) -> MenuRender {
         let title = format!("{} - MAIN MENU", data.config.bbs.name);

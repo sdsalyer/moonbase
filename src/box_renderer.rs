@@ -4,22 +4,26 @@ use crossterm::{
 };
 use std::io::Write;
 
+use crate::errors::{BbsError, BbsResult};
+
 #[derive(Debug, Clone)]
-pub struct BoxStyle {
+pub struct BoxGlyphs {
     pub top_left: char,
     pub top_right: char,
     pub bottom_left: char,
     pub bottom_right: char,
     pub horizontal: char,
     pub vertical: char,
-    pub cross: char,
-    pub tee_down: char,
-    pub tee_up: char,
-    pub tee_left: char,
-    pub tee_right: char,
+    // pub cross: char,
+    // pub tee_down: char,
+    // pub tee_up: char,
+    // pub tee_left: char,
+    // pub tee_right: char,
 }
 
-impl BoxStyle {
+impl BoxGlyphs {
+    // TODO: Non-ASCII characters
+    /*
     pub fn double() -> Self {
         Self {
             top_left: '╔',
@@ -67,6 +71,7 @@ impl BoxStyle {
             tee_right: '├',
         }
     }
+    */
 
     pub fn ascii() -> Self {
         Self {
@@ -76,11 +81,11 @@ impl BoxStyle {
             bottom_right: '+',
             horizontal: '-',
             vertical: '|',
-            cross: '+',
-            tee_down: '+',
-            tee_up: '+',
-            tee_left: '+',
-            tee_right: '+',
+            // cross: '+',
+            // tee_down: '+',
+            // tee_up: '+',
+            // tee_left: '+',
+            // tee_right: '+',
         }
     }
 }
@@ -99,10 +104,10 @@ impl BoxRenderer {
         }
     }
 
-    pub fn with_color(mut self, color: Color) -> Self {
-        self.default_color = Some(color);
-        self
-    }
+    // pub fn with_color(mut self, color: Color) -> Self {
+    //     self.default_color = Some(color);
+    //     self
+    // }
 
     /// Render a simple box with title
     pub fn render_title_box<W: Write>(
@@ -126,11 +131,11 @@ impl BoxRenderer {
             0
         };
 
-        writer.queue(Print(self.style.top_left))?;
+        writer.queue(Print(self.style.to_glyphs().top_left))?;
 
         // Left padding
         for _ in 0..padding {
-            writer.queue(Print(self.style.horizontal))?;
+            writer.queue(Print(self.style.to_glyphs().horizontal))?;
         }
 
         // Title
@@ -139,10 +144,10 @@ impl BoxRenderer {
         // Right padding
         let remaining = width.saturating_sub(2 + padding + title_len + 2);
         for _ in 0..remaining {
-            writer.queue(Print(self.style.horizontal))?;
+            writer.queue(Print(self.style.to_glyphs().horizontal))?;
         }
 
-        writer.queue(Print(self.style.top_right))?;
+        writer.queue(Print(self.style.to_glyphs().top_right))?;
         writer.queue(Print('\n'))?;
 
         if let Some(_) = box_color {
@@ -166,7 +171,7 @@ impl BoxRenderer {
             writer.queue(SetForegroundColor(c))?;
         }
 
-        writer.queue(Print(self.style.vertical))?;
+        writer.queue(Print(self.style.to_glyphs().vertical))?;
 
         if let Some(_) = box_color {
             writer.queue(ResetColor)?;
@@ -194,7 +199,7 @@ impl BoxRenderer {
             writer.queue(SetForegroundColor(c))?;
         }
 
-        writer.queue(Print(self.style.vertical))?;
+        writer.queue(Print(self.style.to_glyphs().vertical))?;
         writer.queue(Print('\n'))?;
 
         if let Some(_) = box_color {
@@ -217,13 +222,17 @@ impl BoxRenderer {
             writer.queue(SetForegroundColor(c))?;
         }
 
-        writer.queue(Print(self.style.tee_right))?;
+        // TODO: revisit these tee_*
+        // writer.queue(Print(self.style.tee_right))?;
+        writer.queue(Print(self.style.to_glyphs().vertical))?;
 
         for _ in 0..width.saturating_sub(2) {
-            writer.queue(Print(self.style.horizontal))?;
+            writer.queue(Print(self.style.to_glyphs().horizontal))?;
         }
 
-        writer.queue(Print(self.style.tee_left))?;
+        // writer.queue(Print(self.style.tee_left))?;
+        writer.queue(Print(self.style.to_glyphs().vertical))?;
+
         writer.queue(Print('\n'))?;
 
         if let Some(_) = box_color {
@@ -246,13 +255,13 @@ impl BoxRenderer {
             writer.queue(SetForegroundColor(c))?;
         }
 
-        writer.queue(Print(self.style.bottom_left))?;
+        writer.queue(Print(self.style.to_glyphs().bottom_left))?;
 
         for _ in 0..width.saturating_sub(2) {
-            writer.queue(Print(self.style.horizontal))?;
+            writer.queue(Print(self.style.to_glyphs().horizontal))?;
         }
 
-        writer.queue(Print(self.style.bottom_right))?;
+        writer.queue(Print(self.style.to_glyphs().bottom_right))?;
         writer.queue(Print('\n'))?;
 
         if let Some(_) = box_color {
@@ -293,17 +302,17 @@ impl BoxRenderer {
     ) -> std::io::Result<()> {
         self.render_title_box(writer, title, width, color)?;
 
-        let mut has_separator = false;
+        // let mut has_separator = false;
 
         for item in menu_items {
             match item {
-                MenuItem::Header(text) => {
-                    if has_separator {
-                        self.render_separator(writer, width, color)?;
-                    }
-                    self.render_content_line(writer, text, width, color)?;
-                    has_separator = true;
-                }
+                // MenuItem::Header(text) => {
+                //     if has_separator {
+                //         self.render_separator(writer, width, color)?;
+                //     }
+                //     self.render_content_line(writer, text, width, color)?;
+                //     has_separator = true;
+                // }
                 MenuItem::Option {
                     key,
                     description,
@@ -318,7 +327,7 @@ impl BoxRenderer {
                 }
                 MenuItem::Separator => {
                     self.render_separator(writer, width, color)?;
-                    has_separator = false;
+                    // has_separator = false;
                 }
                 MenuItem::Info(text) => {
                     self.render_content_line(writer, text, width, color)?;
@@ -379,7 +388,7 @@ impl BoxRenderer {
 
 #[derive(Debug, Clone)]
 pub enum MenuItem {
-    Header(String),
+    // Header(String),
     Option {
         key: String,
         description: String,
@@ -390,9 +399,9 @@ pub enum MenuItem {
 }
 
 impl MenuItem {
-    pub fn header(text: &str) -> Self {
-        MenuItem::Header(text.to_string())
-    }
+    // pub fn header(text: &str) -> Self {
+    //     MenuItem::Header(text.to_string())
+    // }
 
     pub fn option(key: &str, description: &str) -> Self {
         MenuItem::Option {
@@ -419,32 +428,36 @@ impl MenuItem {
     }
 }
 
+// TODO: Support for Non-ASCII characters
 // Box drawing character sets that can be configured
-#[derive(Debug, Clone)]
-pub enum BoxStyleName {
-    Double,
-    Single,
-    Rounded,
+#[derive(Debug, Copy, Clone)]
+pub enum BoxStyle {
+    // Double,
+    // Single,
+    // Rounded,
     Ascii,
 }
 
-impl BoxStyleName {
-    pub fn from_str(s: &str) -> Result<Self, String> {
+impl BoxStyle {
+    pub fn from_str(s: &str) -> BbsResult<BoxStyle> {
         match s.to_lowercase().as_str() {
-            "double" => Ok(BoxStyleName::Double),
-            "single" => Ok(BoxStyleName::Single),
-            "rounded" => Ok(BoxStyleName::Rounded),
-            "ascii" => Ok(BoxStyleName::Ascii),
-            _ => Err(format!("Unknown box style: {}", s)),
+            // "double" => Ok(BoxStyleName::Double),
+            // "single" => Ok(BoxStyleName::Single),
+            // "rounded" => Ok(BoxStyleName::Rounded),
+            "ascii" => Ok(BoxStyle::Ascii),
+            _ => Err(BbsError::Configuration(format!(
+                "No box style found for value: {}",
+                s
+            ))),
         }
     }
 
-    pub fn to_style(&self) -> BoxStyle {
+    fn to_glyphs(&self) -> BoxGlyphs {
         match self {
-            BoxStyleName::Double => BoxStyle::double(),
-            BoxStyleName::Single => BoxStyle::single(),
-            BoxStyleName::Rounded => BoxStyle::rounded(),
-            BoxStyleName::Ascii => BoxStyle::ascii(),
+            // BoxStyleName::Double => BoxStyle::double(),
+            // BoxStyleName::Single => BoxStyle::single(),
+            // BoxStyleName::Rounded => BoxStyle::rounded(),
+            BoxStyle::Ascii => BoxGlyphs::ascii(),
         }
     }
 }

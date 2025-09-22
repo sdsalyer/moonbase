@@ -1,5 +1,5 @@
-use crate::box_renderer::{BoxRenderer, BoxStyle, BoxStyleName};
-use std::collections::HashMap;
+use crate::box_renderer::BoxStyle;
+
 use std::fs;
 use std::time::Duration;
 
@@ -48,7 +48,7 @@ pub struct FeatureConfig {
 
 #[derive(Debug, Clone)]
 pub struct UIConfig {
-    pub box_style: BoxStyleName,
+    pub box_style: BoxStyle,
     pub menu_width: usize,
     pub use_colors: bool,
     pub welcome_pause_ms: u64,
@@ -84,7 +84,7 @@ impl Default for BbsConfig {
                 bulletins_enabled: true,
             },
             ui: UIConfig {
-                box_style: BoxStyleName::Double,
+                box_style: BoxStyle::Ascii,
                 menu_width: 42,
                 use_colors: true,
                 welcome_pause_ms: 1500,
@@ -178,7 +178,7 @@ impl BbsConfig {
     fn parse_ui_config(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
             "box_style" => {
-                self.ui.box_style = BoxStyleName::from_str(value)
+                self.ui.box_style = BoxStyle::from_str(value)
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
             }
             "menu_width" => {
@@ -327,10 +327,10 @@ welcome_pause_ms = {}
             self.features.file_uploads_enabled,
             self.features.bulletins_enabled,
             match self.ui.box_style {
-                BoxStyleName::Double => "double",
-                BoxStyleName::Single => "single",
-                BoxStyleName::Rounded => "rounded",
-                BoxStyleName::Ascii => "ascii",
+                // BoxStyleName::Double => "double",
+                // BoxStyleName::Single => "single",
+                // BoxStyleName::Rounded => "rounded",
+                BoxStyle::Ascii => "ascii",
             },
             self.ui.menu_width,
             self.ui.use_colors,
@@ -338,14 +338,15 @@ welcome_pause_ms = {}
         )
     }
 
+    // TODO: this should be using the box drawing function
     pub fn get_welcome_header(&self) -> String {
         format!(
             r#"
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                         🏛️  {}  🏛️                           ║
+║                         *  {}  *                           ║
 ║                                                                              ║
 ║                    {}                     ║
-║                        SysOp: {} • Est. {}                         ║
+║                        SysOp: {} | Est. {}                         ║
 ║                           Location: {}                            ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 "#,

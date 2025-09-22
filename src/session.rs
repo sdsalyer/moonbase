@@ -1,7 +1,7 @@
-use crate::box_renderer::{BoxRenderer, BoxStyle, MenuItem};
+use crate::box_renderer::{BoxRenderer, BoxStyle};
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
-use crate::menu::{CurrentMenu, Display, Menu, MenuAction, MenuData, MenuRender};
+use crate::menu::{CurrentMenu, Menu, MenuAction, MenuData, MenuRender};
 use crossterm::{
     cursor,
     style::{Color, Print, ResetColor, SetForegroundColor},
@@ -33,7 +33,7 @@ pub struct BbsSession {
 
 impl BbsSession {
     pub fn new(config: Arc<BbsConfig>) -> Self {
-        let box_renderer = BoxRenderer::new(BoxStyle::ascii());
+        let box_renderer = BoxRenderer::new(BoxStyle::Ascii);
 
         Self {
             config,
@@ -87,7 +87,7 @@ impl BbsSession {
     }
 
     /// Create MenuData for current session state
-    fn menu_create_data(&self) -> MenuData {
+    fn menu_create_data(&self) -> MenuData<'_> {
         MenuData {
             config: &self.config,
             username: &self.username,
@@ -125,7 +125,7 @@ impl BbsSession {
         action: MenuAction,
     ) -> BbsResult<bool> {
         match action {
-            MenuAction::Stay => Ok(true),
+            // MenuAction::Stay => Ok(true),
             MenuAction::GoTo(menu) => {
                 self.menu_current = menu;
                 Ok(true)
@@ -357,7 +357,7 @@ impl BbsSession {
         stream.queue(cursor::MoveTo(0, 0))?;
 
         let goodbye_msg = format!(
-            "Thanks for visiting {}!\n\nSysOp: {}\n\n🚪 Come back anytime! 🚪",
+            "Thanks for visiting {}!\n\nSysOp: {}\n\n* Come back anytime! *",
             self.config.bbs.name, self.config.bbs.sysop_name
         );
 
@@ -376,36 +376,36 @@ impl BbsSession {
         Ok(())
     }
 
-    /// Show feature disabled message
-    fn show_feature_disabled(
-        &mut self,
-        stream: &mut TcpStream,
-        feature_name: &str,
-    ) -> BbsResult<()> {
-        let width = self.config.ui.menu_width + 20;
-        let message = format!(
-            "⚠️  {} has been disabled by the SysOp.\n\nContact {} for more information.",
-            feature_name, self.config.bbs.sysop_name
-        );
-
-        stream.queue(Clear(ClearType::All))?;
-        stream.queue(cursor::MoveTo(0, 0))?;
-        self.box_renderer.render_message_box(
-            stream,
-            "FEATURE DISABLED",
-            &message,
-            width,
-            Some(Color::Red),
-        )?;
-
-        stream.queue(Print("\nPress Enter to continue..."))?;
-        stream.flush()?;
-
-        let mut buffer = [0; 1024];
-        let _ = stream.read(&mut buffer);
-
-        Ok(())
-    }
+    // Show feature disabled message
+    // fn show_feature_disabled(
+    //     &mut self,
+    //     stream: &mut TcpStream,
+    //     feature_name: &str,
+    // ) -> BbsResult<()> {
+    //     let width = self.config.ui.menu_width + 20;
+    //     let message = format!(
+    //         "!  {} has been disabled by the SysOp.\n\nContact {} for more information.",
+    //         feature_name, self.config.bbs.sysop_name
+    //     );
+    //
+    //     stream.queue(Clear(ClearType::All))?;
+    //     stream.queue(cursor::MoveTo(0, 0))?;
+    //     self.box_renderer.render_message_box(
+    //         stream,
+    //         "FEATURE DISABLED",
+    //         &message,
+    //         width,
+    //         Some(Color::Red),
+    //     )?;
+    //
+    //     stream.queue(Print("\nPress Enter to continue..."))?;
+    //     stream.flush()?;
+    //
+    //     let mut buffer = [0; 1024];
+    //     let _ = stream.read(&mut buffer);
+    //
+    //     Ok(())
+    // }
 }
 
 // Remove the problematic Display trait implementation
