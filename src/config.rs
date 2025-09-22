@@ -1,7 +1,7 @@
+use crate::box_renderer::{BoxRenderer, BoxStyle, BoxStyleName};
 use std::collections::HashMap;
 use std::fs;
 use std::time::Duration;
-use crate::box_renderer::{BoxRenderer, BoxStyleName, BoxStyle};
 
 #[derive(Debug, Clone)]
 pub struct BbsConfig {
@@ -71,9 +71,9 @@ impl Default for BbsConfig {
                 established: "2025".to_string(),
             },
             timeouts: TimeoutConfig {
-                connection_timeout: Duration::from_secs(300),    // 5 minutes
-                idle_timeout: Duration::from_secs(1800),         // 30 minutes
-                login_timeout: Duration::from_secs(120),         // 2 minutes
+                connection_timeout: Duration::from_secs(300), // 5 minutes
+                idle_timeout: Duration::from_secs(1800),      // 30 minutes
+                login_timeout: Duration::from_secs(120),      // 2 minutes
             },
             features: FeatureConfig {
                 allow_anonymous: true,
@@ -108,30 +108,30 @@ impl BbsConfig {
             }
         }
     }
-    
+
     fn parse_config(content: &str) -> Result<Self, ConfigError> {
         let mut config = Self::default();
         let mut current_section = String::new();
-        
+
         for line in content.lines() {
             let line = line.trim();
-            
+
             // Skip comments and empty lines
             if line.is_empty() || line.starts_with('#') {
                 continue;
             }
-            
+
             // Handle sections
             if line.starts_with('[') && line.ends_with(']') {
-                current_section = line[1..line.len()-1].to_string();
+                current_section = line[1..line.len() - 1].to_string();
                 continue;
             }
-            
+
             // Handle key-value pairs
             if let Some(eq_pos) = line.find('=') {
                 let key = line[..eq_pos].trim();
-                let value = line[eq_pos+1..].trim().trim_matches('"');
-                
+                let value = line[eq_pos + 1..].trim().trim_matches('"');
+
                 match current_section.as_str() {
                     "server" => config.parse_server_config(key, value)?,
                     "bbs" => config.parse_bbs_config(key, value)?,
@@ -142,59 +142,65 @@ impl BbsConfig {
                 }
             }
         }
-        
+
         Ok(config)
     }
-    
+
     fn parse_server_config(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
             "telnet_port" => {
-                self.server.telnet_port = value.parse()
+                self.server.telnet_port = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "ssh_port" => {
                 if value.is_empty() || value == "none" {
                     self.server.ssh_port = None;
                 } else {
-                    self.server.ssh_port = Some(value.parse()
-                        .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?);
+                    self.server.ssh_port = Some(value.parse().map_err(|_| {
+                        ConfigError::InvalidValue(key.to_string(), value.to_string())
+                    })?);
                 }
-            },
+            }
             "bind_address" => {
                 self.server.bind_address = value.to_string();
-            },
+            }
             "max_connections" => {
-                self.server.max_connections = value.parse()
+                self.server.max_connections = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             _ => return Err(ConfigError::UnknownKey(key.to_string())),
         }
         Ok(())
     }
-    
+
     fn parse_ui_config(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
             "box_style" => {
                 self.ui.box_style = BoxStyleName::from_str(value)
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "menu_width" => {
-                self.ui.menu_width = value.parse()
+                self.ui.menu_width = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "use_colors" => {
-                self.ui.use_colors = value.parse()
+                self.ui.use_colors = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "welcome_pause_ms" => {
-                self.ui.welcome_pause_ms = value.parse()
+                self.ui.welcome_pause_ms = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             _ => return Err(ConfigError::UnknownKey(key.to_string())),
         }
         Ok(())
     }
-    
+
     fn parse_bbs_config(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
             "name" => self.bbs.name = value.to_string(),
@@ -206,11 +212,12 @@ impl BbsConfig {
         }
         Ok(())
     }
-    
+
     fn parse_timeout_config(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
-        let seconds: u64 = value.parse()
+        let seconds: u64 = value
+            .parse()
             .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-        
+
         match key {
             "connection_timeout" => self.timeouts.connection_timeout = Duration::from_secs(seconds),
             "idle_timeout" => self.timeouts.idle_timeout = Duration::from_secs(seconds),
@@ -219,40 +226,47 @@ impl BbsConfig {
         }
         Ok(())
     }
-    
+
     fn parse_feature_config(&mut self, key: &str, value: &str) -> Result<(), ConfigError> {
         match key {
             "allow_anonymous" => {
-                self.features.allow_anonymous = value.parse()
+                self.features.allow_anonymous = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "require_registration" => {
-                self.features.require_registration = value.parse()
+                self.features.require_registration = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "max_message_length" => {
-                self.features.max_message_length = value.parse()
+                self.features.max_message_length = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "max_username_length" => {
-                self.features.max_username_length = value.parse()
+                self.features.max_username_length = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "file_uploads_enabled" => {
-                self.features.file_uploads_enabled = value.parse()
+                self.features.file_uploads_enabled = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             "bulletins_enabled" => {
-                self.features.bulletins_enabled = value.parse()
+                self.features.bulletins_enabled = value
+                    .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
-            },
+            }
             _ => return Err(ConfigError::UnknownKey(key.to_string())),
         }
         Ok(())
     }
-    
+
     fn to_config_file_format(&self) -> String {
-        format!(r#"# Rust BBS Configuration File
+        format!(
+            r#"# Rust BBS Configuration File
 # Lines starting with # are comments
 
 [server]
@@ -293,7 +307,9 @@ use_colors = {}
 welcome_pause_ms = {}
 "#,
             self.server.telnet_port,
-            self.server.ssh_port.map_or("none".to_string(), |p| p.to_string()),
+            self.server
+                .ssh_port
+                .map_or("none".to_string(), |p| p.to_string()),
             self.server.bind_address,
             self.server.max_connections,
             self.bbs.name,
@@ -312,7 +328,7 @@ welcome_pause_ms = {}
             self.features.bulletins_enabled,
             match self.ui.box_style {
                 BoxStyleName::Double => "double",
-                BoxStyleName::Single => "single", 
+                BoxStyleName::Single => "single",
                 BoxStyleName::Rounded => "rounded",
                 BoxStyleName::Ascii => "ascii",
             },
@@ -321,9 +337,10 @@ welcome_pause_ms = {}
             self.ui.welcome_pause_ms,
         )
     }
-    
+
     pub fn get_welcome_header(&self) -> String {
-        format!(r#"
+        format!(
+            r#"
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║                         🏛️  {}  🏛️                           ║
 ║                                                                              ║
@@ -354,7 +371,7 @@ impl std::fmt::Display for ConfigError {
         match self {
             ConfigError::InvalidValue(key, value) => {
                 write!(f, "Invalid value '{}' for key '{}'", value, key)
-            },
+            }
             ConfigError::UnknownKey(key) => write!(f, "Unknown configuration key: '{}'", key),
             ConfigError::UnknownSection(section) => write!(f, "Unknown section: '{}'", section),
             ConfigError::IoError(msg) => write!(f, "I/O error: {}", msg),

@@ -5,19 +5,19 @@ use std::fmt;
 pub enum BbsError {
     /// I/O related errors (network, file operations, etc.)
     Io(std::io::Error),
-    
+
     /// Invalid user input
     InvalidInput(String),
-    
+
     /// Authentication failed (too many attempts, invalid credentials, etc.)
     AuthenticationFailed(String),
-    
+
     /// Feature is disabled by configuration
     FeatureDisabled(String),
-    
+
     /// Client disconnected unexpectedly
     ClientDisconnected,
-    
+
     /// Configuration error
     Configuration(String),
 }
@@ -47,11 +47,11 @@ impl std::error::Error for BbsError {
 impl From<std::io::Error> for BbsError {
     fn from(err: std::io::Error) -> Self {
         use std::io::ErrorKind;
-        
+
         match err.kind() {
-            ErrorKind::UnexpectedEof | ErrorKind::ConnectionReset | ErrorKind::ConnectionAborted => {
-                BbsError::ClientDisconnected
-            }
+            ErrorKind::UnexpectedEof
+            | ErrorKind::ConnectionReset
+            | ErrorKind::ConnectionAborted => BbsError::ClientDisconnected,
             _ => BbsError::Io(err),
         }
     }

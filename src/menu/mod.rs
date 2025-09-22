@@ -1,12 +1,12 @@
-pub mod menu_main;
 pub mod menu_bulletin;
+pub mod menu_main;
 // pub mod user_menu;
 // pub mod message_menu;
 // pub mod file_menu;
 
 use crate::box_renderer::MenuItem;
 use crate::config::BbsConfig;
-use crate::errors::{BbsResult, BbsError};
+use crate::errors::{BbsError, BbsResult};
 use crossterm::style::Color;
 
 /// Current menu state
@@ -42,12 +42,12 @@ impl<'a> MenuData<'a> {
     pub fn is_logged_in(&self) -> bool {
         self.username.is_some()
     }
-    
+
     /// Helper to check if anonymous access is allowed
     pub fn allow_anonymous(&self) -> bool {
         self.config.features.allow_anonymous
     }
-    
+
     /// Get the current username, or "Anonymous" if not logged in
     pub fn display_username(&self) -> String {
         match self.username {
@@ -73,7 +73,7 @@ impl MenuRender {
             prompt: prompt.to_string(),
         }
     }
-    
+
     pub fn with_items(title: &str, items: Vec<MenuItem>, prompt: &str) -> Self {
         Self {
             title: title.to_string(),
@@ -94,10 +94,10 @@ pub trait Display {
 pub trait Menu {
     /// Render the menu - pure function that returns display data
     fn render(&self, data: MenuData) -> MenuRender;
-    
+
     /// Handle user input - pure function that returns an action
     fn handle_input(&self, data: MenuData, input: &str) -> MenuAction;
-    
+
     /// Optional method with default implementation for menu name
     fn name(&self) -> &'static str {
         "Menu"
