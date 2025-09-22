@@ -1,4 +1,4 @@
-use super::{CurrentMenu, Menu, MenuAction, MenuData, MenuRender};
+use super::{Menu, MenuScreen, MenuAction, MenuData, MenuRender};
 use crate::box_renderer::MenuItem;
 
 /// Main menu - clean, stateless menu
@@ -10,7 +10,7 @@ impl MainMenu {
     }
 }
 
-impl Menu for MainMenu {
+impl MenuScreen for MainMenu {
     // fn name(&self) -> &'static str {
     //     "Main Menu"
     // }
@@ -66,7 +66,7 @@ impl Menu for MainMenu {
         match input.to_lowercase().as_str() {
             "1" => {
                 if data.config.features.bulletins_enabled {
-                    MenuAction::GoTo(CurrentMenu::Bulletins)
+                    MenuAction::GoTo(Menu::Bulletins)
                 } else {
                     MenuAction::ShowMessage("Bulletin Board is currently disabled.".to_string())
                 }

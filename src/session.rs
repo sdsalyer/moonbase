@@ -1,7 +1,7 @@
 use crate::box_renderer::{BoxRenderer, BoxStyle};
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
-use crate::menu::{CurrentMenu, Menu, MenuAction, MenuData, MenuRender};
+use crate::menu::{Menu, MenuScreen, MenuAction, MenuData, MenuRender};
 use crossterm::{
     cursor,
     style::{Color, Print, ResetColor, SetForegroundColor},
@@ -17,7 +17,7 @@ pub struct BbsSession {
     // All session state in one place
     pub config: Arc<BbsConfig>,
     pub username: Option<String>,
-    pub menu_current: CurrentMenu,
+    pub menu_current: Menu,
 
     // Session resources
     box_renderer: BoxRenderer,
@@ -38,7 +38,7 @@ impl BbsSession {
         Self {
             config,
             username: None,
-            menu_current: CurrentMenu::Main,
+            menu_current: Menu::Main,
             box_renderer,
             login_attempts: 0,
             menu_main: crate::menu::menu_main::MainMenu::new(),
@@ -76,10 +76,10 @@ impl BbsSession {
     }
 
     /// Get the current menu instance
-    fn menu_get_current(&self) -> &dyn Menu {
+    fn menu_get_current(&self) -> &dyn MenuScreen {
         match self.menu_current {
-            CurrentMenu::Main => &self.menu_main,
-            CurrentMenu::Bulletins => &self.menu_bulletin,
+            Menu::Main => &self.menu_main,
+            Menu::Bulletins => &self.menu_bulletin,
             // CurrentMenu::Users => &self.menu_user,
             // CurrentMenu::Messages => &self.menu_message,
             // CurrentMenu::Files => &self.menu_file,

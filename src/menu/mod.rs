@@ -9,7 +9,7 @@ use crate::config::BbsConfig;
 
 /// Current menu state
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum CurrentMenu {
+pub enum Menu {
     Main,
     Bulletins,
     // Users,
@@ -21,7 +21,7 @@ pub enum CurrentMenu {
 #[derive(Debug, Clone, PartialEq)]
 pub enum MenuAction {
     // Stay,
-    GoTo(CurrentMenu),
+    GoTo(Menu),
     Login,
     Logout,
     Quit,
@@ -89,7 +89,7 @@ impl MenuRender {
 // }
 //
 /// The Menu trait - clean interface with no I/O dependencies
-pub trait Menu {
+pub trait MenuScreen {
     /// Render the menu - pure function that returns display data
     fn render(&self, data: MenuData) -> MenuRender;
 

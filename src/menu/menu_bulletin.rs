@@ -1,4 +1,4 @@
-use super::{CurrentMenu, Menu, MenuAction, MenuData, MenuRender};
+use super::{Menu, MenuScreen, MenuAction, MenuData, MenuRender};
 use crate::box_renderer::MenuItem;
 
 /// Bulletin menu - can have state like current bulletin, filters, etc.
@@ -22,7 +22,7 @@ impl BulletinMenu {
     // }
 }
 
-impl Menu for BulletinMenu {
+impl MenuScreen for BulletinMenu {
     // fn name(&self) -> &'static str {
     //     "Bulletin Board"
     // }
@@ -88,7 +88,7 @@ impl Menu for BulletinMenu {
     fn handle_input(&self, data: MenuData, input: &str) -> MenuAction {
         if !data.config.features.bulletins_enabled {
             return match input.to_lowercase().as_str() {
-                "b" => MenuAction::GoTo(CurrentMenu::Main),
+                "b" => MenuAction::GoTo(Menu::Main),
                 _ => MenuAction::ShowMessage(
                     "Bulletin Board is disabled. Press B to go back.".to_string(),
                 ),
@@ -117,7 +117,7 @@ impl Menu for BulletinMenu {
             "s" => {
                 MenuAction::ShowMessage("Filter toggled (would show read bulletins)".to_string())
             }
-            "b" => MenuAction::GoTo(CurrentMenu::Main),
+            "b" => MenuAction::GoTo(Menu::Main),
             _ => MenuAction::ShowMessage("Invalid choice. Use R, P, H/S, or B.".to_string()),
         }
     }
