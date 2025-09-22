@@ -71,6 +71,7 @@ impl Menu for MainMenu {
                     MenuAction::ShowMessage("Bulletin Board is currently disabled.".to_string())
                 }
             }
+            "2" | "3" | "4" => MenuAction::ShowMessage("Feature coming soon!".to_string()),
             // "2" => MenuAction::GoTo(CurrentMenu::Users),
             // "3" => MenuAction::GoTo(CurrentMenu::Messages),
             // "4" => {

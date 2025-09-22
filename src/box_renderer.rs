@@ -1,6 +1,6 @@
 use crossterm::{
-    style::{Color, Print, ResetColor, SetForegroundColor},
     QueueableCommand,
+    style::{Color, Print, ResetColor, SetForegroundColor},
 };
 use std::io::Write;
 
@@ -14,7 +14,7 @@ pub struct BoxGlyphs {
     pub bottom_right: char,
     pub horizontal: char,
     pub vertical: char,
-    // pub cross: char,
+    pub cross: char,
     // pub tee_down: char,
     // pub tee_up: char,
     // pub tee_left: char,
@@ -81,7 +81,7 @@ impl BoxGlyphs {
             bottom_right: '+',
             horizontal: '-',
             vertical: '|',
-            // cross: '+',
+            cross: '+',
             // tee_down: '+',
             // tee_up: '+',
             // tee_left: '+',
@@ -94,13 +94,15 @@ impl BoxGlyphs {
 pub struct BoxRenderer {
     pub style: BoxStyle,
     pub default_color: Option<Color>,
+    use_colors: bool,
 }
 
 impl BoxRenderer {
-    pub fn new(style: BoxStyle) -> Self {
+    pub fn new(style: BoxStyle, use_colors: bool) -> Self {
         Self {
             style,
             default_color: None,
+            use_colors,
         }
     }
 
@@ -117,7 +119,11 @@ impl BoxRenderer {
         width: usize,
         color: Option<Color>,
     ) -> std::io::Result<()> {
-        let box_color = color.or(self.default_color);
+        let box_color = if self.use_colors {
+            color.or(self.default_color)
+        } else {
+            None
+        };
 
         if let Some(c) = box_color {
             writer.queue(SetForegroundColor(c))?;
@@ -165,7 +171,11 @@ impl BoxRenderer {
         width: usize,
         color: Option<Color>,
     ) -> std::io::Result<()> {
-        let box_color = color.or(self.default_color);
+        let box_color = if self.use_colors {
+            color.or(self.default_color)
+        } else {
+            None
+        };
 
         if let Some(c) = box_color {
             writer.queue(SetForegroundColor(c))?;
@@ -216,7 +226,11 @@ impl BoxRenderer {
         width: usize,
         color: Option<Color>,
     ) -> std::io::Result<()> {
-        let box_color = color.or(self.default_color);
+        let box_color = if self.use_colors {
+            color.or(self.default_color)
+        } else {
+            None
+        };
 
         if let Some(c) = box_color {
             writer.queue(SetForegroundColor(c))?;
@@ -224,14 +238,14 @@ impl BoxRenderer {
 
         // TODO: revisit these tee_*
         // writer.queue(Print(self.style.tee_right))?;
-        writer.queue(Print(self.style.to_glyphs().vertical))?;
+        writer.queue(Print(self.style.to_glyphs().cross))?;
 
         for _ in 0..width.saturating_sub(2) {
             writer.queue(Print(self.style.to_glyphs().horizontal))?;
         }
 
         // writer.queue(Print(self.style.tee_left))?;
-        writer.queue(Print(self.style.to_glyphs().vertical))?;
+        writer.queue(Print(self.style.to_glyphs().cross))?;
 
         writer.queue(Print('\n'))?;
 
@@ -249,7 +263,11 @@ impl BoxRenderer {
         width: usize,
         color: Option<Color>,
     ) -> std::io::Result<()> {
-        let box_color = color.or(self.default_color);
+        let box_color = if self.use_colors {
+            color.or(self.default_color)
+        } else {
+            None
+        };
 
         if let Some(c) = box_color {
             writer.queue(SetForegroundColor(c))?;
@@ -356,27 +374,28 @@ impl BoxRenderer {
 
         // Split message into lines that fit
         let max_content_width = width.saturating_sub(4);
-        let words: Vec<&str> = message.split_whitespace().collect();
-        let mut current_line = String::new();
+        for message in message.lines() {
+            let words: Vec<&str> = message.split_whitespace().collect();
+            let mut current_line = String::new();
 
-        for word in words {
-            if current_line.is_empty() {
-                current_line = word.to_string();
-            } else if current_line.len() + word.len() + 1 <= max_content_width {
-                current_line.push(' ');
-                current_line.push_str(word);
-            } else {
-                // Render current line and start new one
+            for word in words {
+                if current_line.is_empty() {
+                    current_line = word.to_string();
+                } else if current_line.len() + word.len() + 1 <= max_content_width {
+                    current_line.push(' ');
+                    current_line.push_str(word);
+                } else {
+                    // Render current line and start new one
+                    self.render_content_line(writer, &current_line, width, color)?;
+                    current_line = word.to_string();
+                }
+            }
+
+            // Render remaining line if any
+            if !current_line.is_empty() {
                 self.render_content_line(writer, &current_line, width, color)?;
-                current_line = word.to_string();
             }
         }
-
-        // Render remaining line if any
-        if !current_line.is_empty() {
-            self.render_content_line(writer, &current_line, width, color)?;
-        }
-
         // Empty line for padding
         self.render_content_line(writer, "", width, color)?;
 

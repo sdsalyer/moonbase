@@ -85,8 +85,8 @@ impl Default for BbsConfig {
             },
             ui: UIConfig {
                 box_style: BoxStyle::Ascii,
-                menu_width: 42,
-                use_colors: true,
+                menu_width: 80,
+                use_colors: false,
                 welcome_pause_ms: 1500,
             },
         }
@@ -335,26 +335,6 @@ welcome_pause_ms = {}
             self.ui.menu_width,
             self.ui.use_colors,
             self.ui.welcome_pause_ms,
-        )
-    }
-
-    // TODO: this should be using the box drawing function
-    pub fn get_welcome_header(&self) -> String {
-        format!(
-            r#"
-╔══════════════════════════════════════════════════════════════════════════════╗
-║                         *  {}  *                           ║
-║                                                                              ║
-║                    {}                     ║
-║                        SysOp: {} | Est. {}                         ║
-║                           Location: {}                            ║
-╚══════════════════════════════════════════════════════════════════════════════╝
-"#,
-            self.bbs.name.chars().take(30).collect::<String>(),
-            self.bbs.tagline.chars().take(50).collect::<String>(),
-            self.bbs.sysop_name,
-            self.bbs.established,
-            self.bbs.location
         )
     }
 }

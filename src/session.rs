@@ -33,7 +33,7 @@ pub struct BbsSession {
 
 impl BbsSession {
     pub fn new(config: Arc<BbsConfig>) -> Self {
-        let box_renderer = BoxRenderer::new(BoxStyle::Ascii);
+        let box_renderer = BoxRenderer::new(BoxStyle::Ascii, config.ui.use_colors);
 
         Self {
             config,
@@ -188,21 +188,42 @@ impl BbsSession {
     fn show_welcome(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
-        stream.queue(SetForegroundColor(Color::Cyan))?;
 
-        let welcome = self.config.get_welcome_header();
-        stream.queue(Print(welcome))?;
-        stream.queue(ResetColor)?;
+        let welcome_msg = format!(
+            r#"
+*  {}  *
+
+{}
+SysOp: {} | Est. {}
+Location: {}
+"#,
+            self.config.bbs.name.chars().take(30).collect::<String>(),
+            self.config.bbs.tagline.chars().take(50).collect::<String>(),
+            self.config.bbs.sysop_name,
+            self.config.bbs.established,
+            self.config.bbs.location
+        );
+
+        self.box_renderer.render_message_box(
+            stream,
+            "WELCOME",
+            &welcome_msg,
+            self.config.ui.menu_width,
+            Some(Color::Magenta),
+        )?;
+
+
+        stream.queue(Print("\nPress Enter to continue..."))?;
         stream.flush()?;
 
-        std::thread::sleep(Duration::from_millis(self.config.ui.welcome_pause_ms));
+        let mut buffer = [0; 1024];
+        let _ = stream.read(&mut buffer);
+
         Ok(())
     }
 
     /// Handle user login process
     fn handle_login(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
-        let width = self.config.ui.menu_width;
-
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -215,7 +236,7 @@ impl BbsSession {
             stream,
             "USER LOGIN",
             &instructions,
-            width,
+            self.config.ui.menu_width,
             Some(Color::Cyan),
         )?;
 
@@ -248,7 +269,6 @@ impl BbsSession {
 
     /// Force login for restricted BBS
     fn force_login(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
-        let width = self.config.ui.menu_width + 20;
         let message = "This BBS requires registration to access. Anonymous access has been disabled by the SysOp.";
 
         stream.queue(Clear(ClearType::All))?;
@@ -258,7 +278,7 @@ impl BbsSession {
             stream,
             "LOGIN REQUIRED",
             message,
-            width,
+            self.config.ui.menu_width,
             Some(Color::Yellow),
         )?;
 
@@ -316,11 +336,10 @@ impl BbsSession {
 
     /// Display a rendered menu
     fn menu_show(&self, stream: &mut TcpStream, render: &MenuRender) -> BbsResult<()> {
-        let width = self.config.ui.menu_width;
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
         self.box_renderer
-            .render_menu(stream, &render.title, &render.items, width, None)?;
+            .render_menu(stream, &render.title, &render.items, self.config.ui.menu_width, None)?;
         Ok(())
     }
 
@@ -332,13 +351,11 @@ impl BbsSession {
         message: &str,
         color: Option<Color>,
     ) -> BbsResult<()> {
-        let width = self.config.ui.menu_width + 20;
-
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
         self.box_renderer
-            .render_message_box(stream, title, message, width, color)?;
+            .render_message_box(stream, title, message, self.config.ui.menu_width, color)?;
 
         stream.queue(Print("\nPress Enter to continue..."))?;
         stream.flush()?;
@@ -351,8 +368,6 @@ impl BbsSession {
 
     /// Show goodbye screen
     fn show_goodbye(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
-        let width = self.config.ui.menu_width + 20;
-
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -365,7 +380,7 @@ impl BbsSession {
             stream,
             "GOODBYE",
             &goodbye_msg,
-            width,
+            self.config.ui.menu_width,
             Some(Color::Magenta),
         )?;
 

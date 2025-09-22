@@ -107,7 +107,7 @@ fn main() -> BbsResult<()> {
 }
 
 pub fn print_startup_banner(config: &BbsConfig) -> std::io::Result<()> {
-    let box_renderer = BoxRenderer::new(config.ui.box_style);
+    let box_renderer = BoxRenderer::new(config.ui.box_style, config.ui.use_colors);
 
     let mut output = Vec::new();
 
@@ -162,7 +162,7 @@ fn handle_client(stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()> {
 
 fn send_rejection_message(mut stream: TcpStream, config: Arc<BbsConfig>) -> std::io::Result<()> {
     // Create a simple box renderer for the rejection message
-    let box_renderer = crate::box_renderer::BoxRenderer::new(config.ui.box_style);
+    let box_renderer = crate::box_renderer::BoxRenderer::new(config.ui.box_style, config.ui.use_colors);
 
     let message = "Sorry, the BBS has reached its maximum number of concurrent connections. Please try again later.";
 
@@ -170,7 +170,7 @@ fn send_rejection_message(mut stream: TcpStream, config: Arc<BbsConfig>) -> std:
         &mut stream,
         "SERVER BUSY",
         message,
-        60,
+        config.ui.menu_width,
         Some(crossterm::style::Color::Red),
     )?;
 
