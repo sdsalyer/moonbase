@@ -5,9 +5,10 @@ use crate::menu::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
 use crate::user_repository::JsonUserStorage;
 use crate::users::{RegistrationRequest, User};
 use crossterm::{
-    QueueableCommand, cursor,
+    cursor,
     style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{Clear, ClearType},
+    QueueableCommand,
 };
 use std::io::{Read, Write};
 use std::net::TcpStream;

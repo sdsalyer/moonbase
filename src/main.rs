@@ -3,8 +3,8 @@ mod config;
 mod errors;
 mod menu;
 mod session;
-mod users;
 mod user_repository;
+mod users;
 
 use box_renderer::BoxRenderer;
 use config::BbsConfig;
@@ -35,7 +35,7 @@ fn main() -> BbsResult<()> {
     // Print startup information
     if let Err(e) = print_startup_banner(&config) {
         eprintln!("Runtime error: {}", e);
-        return Err(errors::BbsError::from(e));
+        return Err(e);
     }
 
     // Wrap config in Arc for sharing between threads
@@ -129,7 +129,11 @@ fn main() -> BbsResult<()> {
 }
 
 /// Handle client BBS Session
-fn handle_client(stream: TcpStream, config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>) -> BbsResult<()> {
+fn handle_client(
+    stream: TcpStream,
+    config: Arc<BbsConfig>,
+    user_storage: Arc<Mutex<JsonUserStorage>>,
+) -> BbsResult<()> {
     let mut session = BbsSession::new(config, user_storage);
     session.run(stream)
 }

@@ -145,6 +145,7 @@ impl JsonUserStorage {
 
 impl UserStorage for JsonUserStorage {
     fn load_user(&self, username: &str) -> BbsResult<Option<User>> {
+        // TODO: why clone?
         Ok(self.users_cache.get(username).cloned())
     }
 
@@ -173,7 +174,7 @@ impl UserStorage for JsonUserStorage {
     // }
 }
 
-/// User statistics
+// User statistics
 // #[derive(Debug)]
 // pub struct UserStats {
 //     pub total_users: usize,
@@ -181,19 +182,18 @@ impl UserStorage for JsonUserStorage {
 //     pub inactive_users: usize,
 // }
 //
-/// Future database storage implementation would look like:
-/// ```rust
-/// pub struct DatabaseUserStorage {
-///     connection: Database,
-/// }
-///
-/// impl UserStorage for DatabaseUserStorage {
-///     fn load_user(&self, username: &str) -> BbsResult<Option<User>> {
-///         // SELECT * FROM users WHERE username = ?
-///     }
-///     // ... other methods
-/// }
-/// ```
+// Future database storage implementation would look like:
+// ```rust
+// pub struct DatabaseUserStorage {
+//     connection: Database,
+// }
+//
+// impl UserStorage for DatabaseUserStorage {
+//     fn load_user(&self, username: &str) -> BbsResult<Option<User>> {
+//         // SELECT * FROM users WHERE username = ?
+//     }
+//     // ... other methods
+// }
 
 #[cfg(test)]
 mod tests {

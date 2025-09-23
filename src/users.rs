@@ -1,4 +1,5 @@
 use crate::errors::{BbsError, BbsResult};
+
 use jiff::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
@@ -33,6 +34,8 @@ impl User {
         })
     }
 
+    // TODO: investigate secure string implementation like secrecy or zeroize
+    //       for passing around secrets like passwords
     /// Verify a password against this user's stored hash
     pub fn verify_password(&self, password: &str) -> BbsResult<bool> {
         PasswordHasher::verify_password(password, &self.password_hash)
@@ -49,7 +52,7 @@ impl User {
         self.is_active
     }
 
-    /// Get a display-friendly string for when the user was created
+    // Get a display-friendly string for when the user was created
     // pub fn created_display(&self) -> String {
     //     // Format timestamp for display
     //     format!("{}", self.created_at.strftime("%Y-%m-%d"))
@@ -132,10 +135,11 @@ impl RegistrationRequest {
         }
 
         // Validate email if provided
-        if let Some(ref email) = self.email {
-            if !email.is_empty() && !email.contains('@') {
-                return Err(BbsError::InvalidInput("Invalid email address".to_string()));
-            }
+        if let Some(ref email) = self.email
+            && !email.is_empty()
+            && !email.contains('@')
+        {
+            return Err(BbsError::InvalidInput("Invalid email address".to_string()));
         }
 
         Ok(())
@@ -148,8 +152,8 @@ pub trait PasswordHash {
     fn verify_password(password: &str, hash: &str) -> BbsResult<bool>;
 }
 
-/// Simple SHA-256 based password hasher
-/// This can be easily replaced with bcrypt later by implementing the PasswordHash trait
+/// Simple password hasher
+/// This can be easily replaced with bcrypt or others later
 pub struct PasswordHasher;
 
 impl PasswordHash for PasswordHasher {
@@ -161,6 +165,7 @@ impl PasswordHash for PasswordHasher {
         let salt = Timestamp::now().as_second();
         let salted_password = format!("{}{}", password, salt);
 
+        // TODO: add a proper crypto package to handle this
         // Use DefaultHasher for simplicity (not cryptographically secure, but good for demo)
         // In production, you'd use a proper crypto hash like SHA-256
         let mut hasher = DefaultHasher::new();
@@ -193,6 +198,7 @@ impl PasswordHash for PasswordHasher {
     }
 }
 
+// TODO:
 // Future bcrypt implementation would look like:
 // pub struct BcryptHasher;
 // impl PasswordHash for BcryptHasher {

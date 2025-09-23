@@ -339,4 +339,3 @@ welcome_pause_ms = {}
         )
     }
 }
-

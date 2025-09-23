@@ -22,13 +22,12 @@ impl MenuScreen for MainMenu {
         // User status
         let user_status = if data.is_logged_in() {
             format!("Logged in as: {}", data.display_username())
+        } else if data.allow_anonymous() {
+            "Status: Anonymous User".to_string()
         } else {
-            if data.allow_anonymous() {
-                "Status: Anonymous User".to_string()
-            } else {
-                "Status: Guest (Limited Access)".to_string()
-            }
+            "Status: Guest (Limited Access)".to_string()
         };
+
         items.push(MenuItem::info(&user_status));
         items.push(MenuItem::separator());
 
