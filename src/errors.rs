@@ -1,6 +1,31 @@
 use std::fmt;
 
-/// Custom error types for the BBS system
+
+/// Custom configuration errors
+#[derive(Debug)]
+pub enum ConfigError {
+    InvalidValue(String, String),
+    UnknownKey(String),
+    UnknownSection(String),
+    // IoError(String),
+}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigError::InvalidValue(key, value) => {
+                write!(f, "Invalid value '{}' for key '{}'", value, key)
+            }
+            ConfigError::UnknownKey(key) => write!(f, "Unknown configuration key: '{}'", key),
+            ConfigError::UnknownSection(section) => write!(f, "Unknown section: '{}'", section),
+            // ConfigError::IoError(msg) => write!(f, "I/O error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+/// Custom BBS errors
 #[derive(Debug)]
 pub enum BbsError {
     /// I/O related errors (network, file operations, etc.)
@@ -13,7 +38,7 @@ pub enum BbsError {
     AuthenticationFailed(String),
 
     /// Feature is disabled by configuration
-    FeatureDisabled(String),
+    // FeatureDisabled(String),
 
     /// Client disconnected unexpectedly
     ClientDisconnected,
@@ -28,7 +53,7 @@ impl fmt::Display for BbsError {
             BbsError::Io(err) => write!(f, "I/O error: {}", err),
             BbsError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
             BbsError::AuthenticationFailed(msg) => write!(f, "Authentication failed: {}", msg),
-            BbsError::FeatureDisabled(feature) => write!(f, "Feature '{}' is disabled", feature),
+            // BbsError::FeatureDisabled(feature) => write!(f, "Feature '{}' is disabled", feature),
             BbsError::ClientDisconnected => write!(f, "Client disconnected"),
             BbsError::Configuration(msg) => write!(f, "Configuration error: {}", msg),
         }
@@ -57,8 +82,8 @@ impl From<std::io::Error> for BbsError {
     }
 }
 
-impl From<crate::config::ConfigError> for BbsError {
-    fn from(err: crate::config::ConfigError) -> Self {
+impl From<ConfigError> for BbsError {
+    fn from(err: ConfigError) -> Self {
         BbsError::Configuration(err.to_string())
     }
 }

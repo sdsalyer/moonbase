@@ -2,24 +2,25 @@ use crate::box_renderer::{BoxRenderer, BoxStyle};
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
 use crate::menu::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
+use crate::user_repository::JsonUserStorage;
+use crate::users::{RegistrationRequest, User};
 use crossterm::{
-    cursor,
+    QueueableCommand, cursor,
     style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{Clear, ClearType},
-    QueueableCommand,
 };
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 pub struct BbsSession {
-    // All session state in one place
     pub config: Arc<BbsConfig>,
-    pub username: Option<String>,
+    pub user: Option<User>,
     pub menu_current: Menu,
 
     // Session resources
+    user_storage: Arc<Mutex<JsonUserStorage>>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
 
@@ -32,13 +33,14 @@ pub struct BbsSession {
 }
 
 impl BbsSession {
-    pub fn new(config: Arc<BbsConfig>) -> Self {
+    pub fn new(config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>) -> Self {
         let box_renderer = BoxRenderer::new(BoxStyle::Ascii, config.ui.use_colors);
 
         Self {
             config,
-            username: None,
+            user: None,
             menu_current: Menu::Main,
+            user_storage,
             box_renderer,
             login_attempts: 0,
             menu_main: crate::menu::menu_main::MainMenu::new(),
@@ -61,7 +63,7 @@ impl BbsSession {
         self.show_welcome(&mut stream)?;
 
         // Check if anonymous access is allowed
-        if !self.config.features.allow_anonymous && self.username.is_none() {
+        if !self.config.features.allow_anonymous && self.user.is_none() {
             self.force_login(&mut stream)?;
         }
 
@@ -90,7 +92,7 @@ impl BbsSession {
     fn menu_create_data(&self) -> MenuData<'_> {
         MenuData {
             config: &self.config,
-            username: &self.username,
+            username: self.user.as_ref().map(|user| &user.username),
         }
     }
 
@@ -135,7 +137,7 @@ impl BbsSession {
                 Ok(true)
             }
             MenuAction::Logout => {
-                self.username = None;
+                self.user = None;
                 self.show_message_with_stream(
                     stream,
                     "SYSTEM MESSAGE",
@@ -226,21 +228,55 @@ Location: {}
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
-        let instructions = format!(
-            "Max username length: {} characters\n\nEnter username (or press Enter to cancel):",
-            self.config.features.max_username_length
-        );
+        let instructions = "Choose an option:\n\n[L] Login with existing account\n[R] Register new account\n[C] Cancel";
+        self.box_renderer.render_message_box(
+            stream,
+            "LOGIN / REGISTER",
+            instructions,
+            self.config.ui.menu_width,
+            Some(Color::Cyan),
+        )?;
+
+        let choice = self.get_input(stream, "\nChoice: ")?;
+
+        match choice.to_lowercase().as_str() {
+            "l" | "login" => self.handle_existing_login(stream),
+            "r" | "register" => self.handle_registration(stream),
+            "c" | "cancel" => {
+                self.show_message_with_stream(
+                    stream,
+                    "LOGIN",
+                    "Login cancelled.",
+                    Some(Color::Yellow),
+                )?;
+                Ok(())
+            }
+            _ => {
+                self.show_message_with_stream(
+                    stream,
+                    "ERROR",
+                    "Invalid choice. Please try again.",
+                    Some(Color::Red),
+                )?;
+                Ok(())
+            }
+        }
+    }
+
+    /// Handle login for existing user
+    fn handle_existing_login(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+        stream.queue(Clear(ClearType::All))?;
+        stream.queue(cursor::MoveTo(0, 0))?;
 
         self.box_renderer.render_message_box(
             stream,
             "USER LOGIN",
-            &instructions,
+            "Enter your credentials:",
             self.config.ui.menu_width,
             Some(Color::Cyan),
         )?;
 
         let username = self.get_input(stream, "\nUsername: ")?;
-
         if username.is_empty() {
             self.show_message_with_stream(
                 stream,
@@ -251,19 +287,140 @@ Location: {}
             return Ok(());
         }
 
-        if username.len() > self.config.features.max_username_length {
-            let msg = format!(
-                "Username too long (max {} characters)",
-                self.config.features.max_username_length
-            );
-            return Err(BbsError::InvalidInput(msg));
+        let password = self.get_input(stream, "Password: ")?;
+        if password.is_empty() {
+            self.show_message_with_stream(
+                stream,
+                "LOGIN",
+                "Login cancelled.",
+                Some(Color::Yellow),
+            )?;
+            return Ok(());
         }
 
-        self.username = Some(username.clone());
-        let welcome_msg = format!("Welcome to {}, {}!", self.config.bbs.name, username);
-        self.show_message_with_stream(stream, "WELCOME", &welcome_msg, Some(Color::Green))?;
+        // Authenticate user
+        let registration_result = {
+            // this scope allows the mutex guard to be dropped
+            // so we can reference self later
+            let mut storage = self
+                .user_storage
+                .lock()
+                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
+            storage.authenticate_user(&username, &password)
+        };
 
-        Ok(())
+        match registration_result? {
+            Some(user) => {
+                self.user = Some(user.clone());
+                let welcome_msg = format!(
+                    "Welcome back, {}!\n\nLast login: {}\nTotal logins: {}",
+                    user.username,
+                    user.last_login_display(),
+                    user.login_count
+                );
+                self.show_message_with_stream(
+                    stream,
+                    "LOGIN SUCCESS",
+                    &welcome_msg,
+                    Some(Color::Green),
+                )
+            }
+            None => self.show_message_with_stream(
+                stream,
+                "LOGIN FAILED",
+                "Invalid username or password.",
+                Some(Color::Red),
+            ),
+        }
+    }
+
+    /// Handle new user registration
+    fn handle_registration(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+        stream.queue(Clear(ClearType::All))?;
+        stream.queue(cursor::MoveTo(0, 0))?;
+
+        let instructions = format!(
+            "Create your account:\n\nUsername rules:\n• 1-{} characters\n• Letters, numbers, underscore only\n• Must be unique",
+            self.config.features.max_username_length
+        );
+        self.box_renderer.render_message_box(
+            stream,
+            "USER REGISTRATION",
+            &instructions,
+            self.config.ui.menu_width,
+            Some(Color::Cyan),
+        )?;
+
+        // Get username
+        let username = self.get_input(stream, "\nUsername: ")?;
+        if username.is_empty() {
+            self.show_message_with_stream(
+                stream,
+                "REGISTRATION",
+                "Registration cancelled.",
+                Some(Color::Yellow),
+            )?;
+            return Ok(());
+        }
+
+        // Get password
+        let password = self.get_input(stream, "Password (min 4 chars): ")?;
+        if password.is_empty() {
+            self.show_message_with_stream(
+                stream,
+                "REGISTRATION",
+                "Registration cancelled.",
+                Some(Color::Yellow),
+            )?;
+            return Ok(());
+        }
+
+        // Get optional email
+        let email_input = self.get_input(stream, "Email (optional): ")?;
+        let email = if email_input.is_empty() {
+            None
+        } else {
+            Some(email_input)
+        };
+
+        // Create registration request
+        let request = RegistrationRequest::new(username.clone(), email, password);
+
+        // Attempt registration
+        let registration_result = {
+            // this scope allows the mutex guard to be dropped
+            // so we can reference self later
+            let mut storage = self
+                .user_storage
+                .lock()
+                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
+            storage.register_user(&request, &self.config)
+        };
+
+        match registration_result {
+            Ok(user) => {
+                self.user = Some(user.clone());
+                let success_msg = format!(
+                    "Registration successful!\n\nWelcome to {}, {}!\nYour account has been created and you are now logged in.",
+                    self.config.bbs.name, user.username
+                );
+                self.show_message_with_stream(
+                    stream,
+                    "REGISTRATION SUCCESS",
+                    &success_msg,
+                    Some(Color::Green),
+                )
+            }
+            Err(e) => {
+                let error_msg = format!("Registration failed: {}", e);
+                self.show_message_with_stream(
+                    stream,
+                    "REGISTRATION FAILED",
+                    &error_msg,
+                    Some(Color::Red),
+                )
+            }
+        }
     }
 
     /// Force login for restricted BBS
@@ -284,13 +441,13 @@ Location: {}
         let timeout = self.config.timeouts.login_timeout;
         stream.set_read_timeout(Some(timeout))?;
 
-        while self.username.is_none() && self.login_attempts < 3 {
+        while self.user.is_none() && self.login_attempts < 3 {
             if !self.attempt_login(stream)? {
                 break;
             }
         }
 
-        if self.username.is_none() {
+        if self.user.is_none() {
             return Err(BbsError::AuthenticationFailed(
                 "Too many failed login attempts".to_string(),
             ));
@@ -321,13 +478,32 @@ Location: {}
         }
 
         if !username.is_empty() {
-            self.username = Some(username.clone());
-            stream.queue(SetForegroundColor(Color::Green))?;
-            stream.queue(Print(&format!("Welcome, {}!\n\n", username)))?;
-            stream.queue(ResetColor)?;
-            stream.flush()?;
-            std::thread::sleep(Duration::from_secs(1));
-            return Ok(false);
+            let password = self.get_input(stream, "Password: ")?;
+
+            // Try to authenticate
+            let mut storage = self
+                .user_storage
+                .lock()
+                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
+
+            match storage.authenticate_user(&username, &password)? {
+                Some(user) => {
+                    self.user = Some(user.clone());
+                    stream.queue(SetForegroundColor(Color::Green))?;
+                    stream.queue(Print(&format!("Welcome, {}!\n\n", user.username)))?;
+                    stream.queue(ResetColor)?;
+                    stream.flush()?;
+                    std::thread::sleep(Duration::from_secs(1));
+                    return Ok(false);
+                }
+                None => {
+                    stream.queue(SetForegroundColor(Color::Red))?;
+                    stream.queue(Print("Invalid username or password.\n\n"))?;
+                    stream.queue(ResetColor)?;
+                    stream.flush()?;
+                    return Ok(true);
+                }
+            }
         }
 
         Ok(true)
@@ -431,6 +607,3 @@ Location: {}
     //     Ok(())
     // }
 }
-
-// Remove the problematic Display trait implementation
-// impl Display for BbsSession {

@@ -1,4 +1,5 @@
 use crate::box_renderer::BoxStyle;
+use crate::errors::ConfigError;
 
 use std::fs;
 use std::time::Duration;
@@ -339,25 +340,3 @@ welcome_pause_ms = {}
     }
 }
 
-#[derive(Debug)]
-pub enum ConfigError {
-    InvalidValue(String, String),
-    UnknownKey(String),
-    UnknownSection(String),
-    IoError(String),
-}
-
-impl std::fmt::Display for ConfigError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ConfigError::InvalidValue(key, value) => {
-                write!(f, "Invalid value '{}' for key '{}'", value, key)
-            }
-            ConfigError::UnknownKey(key) => write!(f, "Unknown configuration key: '{}'", key),
-            ConfigError::UnknownSection(section) => write!(f, "Unknown section: '{}'", section),
-            ConfigError::IoError(msg) => write!(f, "I/O error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for ConfigError {}

@@ -3,17 +3,22 @@ mod config;
 mod errors;
 mod menu;
 mod session;
+mod users;
+mod user_repository;
 
+use box_renderer::BoxRenderer;
 use config::BbsConfig;
 use errors::BbsResult;
 use session::BbsSession;
+
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
-use crate::box_renderer::BoxRenderer;
+use crate::user_repository::JsonUserStorage;
 
+/// Moonbase entry point
 fn main() -> BbsResult<()> {
     // Load configuration
     let config = match BbsConfig::load_from_file("bbs.conf") {
@@ -30,11 +35,23 @@ fn main() -> BbsResult<()> {
     // Print startup information
     if let Err(e) = print_startup_banner(&config) {
         eprintln!("Runtime error: {}", e);
-        return Err(errors::BbsError::Io(e));
+        return Err(errors::BbsError::from(e));
     }
 
     // Wrap config in Arc for sharing between threads
     let config = Arc::new(config);
+
+    // Initialize shared user storage
+    let user_storage = match JsonUserStorage::new("data") {
+        Ok(storage) => {
+            println!("✓ User storage initialized");
+            Arc::new(Mutex::new(storage))
+        }
+        Err(e) => {
+            eprintln!("❌ Failed to initialize user storage: {}", e);
+            return Err(e);
+        }
+    };
 
     // Start the server
     let bind_addr = format!(
@@ -68,10 +85,13 @@ fn main() -> BbsResult<()> {
                 // Clone config for this thread
                 let config = Arc::clone(&config);
 
+                // Clone user storage mutex for this thread
+                let user_storage = Arc::clone(&user_storage);
+
                 // Check connection limit
                 if connection_count > config.server.max_connections {
                     eprintln!("!  Connection limit reached, rejecting connection");
-                    let _ = send_rejection_message(stream, config);
+                    let _ = show_rejection(stream, config);
                     connection_count -= 1;
                     continue;
                 }
@@ -92,7 +112,7 @@ fn main() -> BbsResult<()> {
                     }
 
                     // Handle the client session
-                    match handle_client(stream, config) {
+                    match handle_client(stream, config, user_storage) {
                         Ok(()) => println!("> Client {} disconnected normally", peer_addr),
                         Err(e) => eprintln!("! Error handling client {}: {}", peer_addr, e),
                     }
@@ -108,7 +128,14 @@ fn main() -> BbsResult<()> {
     Ok(())
 }
 
-pub fn print_startup_banner(config: &BbsConfig) -> std::io::Result<()> {
+/// Handle client BBS Session
+fn handle_client(stream: TcpStream, config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>) -> BbsResult<()> {
+    let mut session = BbsSession::new(config, user_storage);
+    session.run(stream)
+}
+
+/// Show Server startup messages in console log
+fn print_startup_banner(config: &BbsConfig) -> BbsResult<()> {
     let box_renderer = BoxRenderer::new(config.ui.box_style, config.ui.use_colors);
 
     let mut output = Vec::new();
@@ -157,12 +184,8 @@ pub fn print_startup_banner(config: &BbsConfig) -> std::io::Result<()> {
     Ok(())
 }
 
-fn handle_client(stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()> {
-    let mut session = BbsSession::new(config);
-    session.run(stream)
-}
-
-fn send_rejection_message(mut stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()> {
+/// Notify user BBS connection limit has been reached
+fn show_rejection(mut stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()> {
     // Create a simple box renderer for the rejection message
     let box_renderer =
         crate::box_renderer::BoxRenderer::new(config.ui.box_style, config.ui.use_colors);

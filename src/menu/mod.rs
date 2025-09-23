@@ -32,7 +32,7 @@ pub enum MenuAction {
 #[derive(Copy, Clone)]
 pub struct MenuData<'a> {
     pub config: &'a BbsConfig,
-    pub username: &'a Option<String>,
+    pub username: Option<&'a String>,
 }
 
 impl<'a> MenuData<'a> {
@@ -49,6 +49,7 @@ impl<'a> MenuData<'a> {
     /// Get the current username, or "Anonymous" if not logged in
     pub fn display_username(&self) -> String {
         match self.username {
+            // TODO: why clone
             Some(name) => name.clone(),
             None => "Anonymous".to_string(),
         }
