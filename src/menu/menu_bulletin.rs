@@ -1,5 +1,5 @@
-use super::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
-use crate::box_renderer::MenuItem;
+use super::{Menu, MenuAction, MenuRender, MenuScreen};
+use crate::{box_renderer::MenuItem, session::BbsSession};
 
 /// Bulletin menu - can have state like current bulletin, filters, etc.
 pub struct BulletinMenu {
@@ -27,7 +27,7 @@ impl MenuScreen for BulletinMenu {
     //     "Bulletin Board"
     // }
 
-    fn render(&self, data: MenuData) -> MenuRender {
+    fn render(&self, data: &BbsSession) -> MenuRender {
         if !data.config.features.bulletins_enabled {
             let items = vec![
                 MenuItem::info("!  Bulletin Board has been disabled by the SysOp."),
@@ -85,7 +85,7 @@ impl MenuScreen for BulletinMenu {
         MenuRender::with_items("BULLETIN BOARD", items, "\nChoice: ")
     }
 
-    fn handle_input(&self, data: MenuData, input: &str) -> MenuAction {
+    fn handle_input(&self, data: &BbsSession, input: &str) -> MenuAction {
         if !data.config.features.bulletins_enabled {
             return match input.to_lowercase().as_str() {
                 "b" => MenuAction::GoTo(Menu::Main),

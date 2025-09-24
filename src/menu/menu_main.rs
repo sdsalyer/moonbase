@@ -1,5 +1,5 @@
-use super::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
-use crate::box_renderer::MenuItem;
+use super::{Menu, MenuAction, MenuRender, MenuScreen};
+use crate::{box_renderer::MenuItem, session::BbsSession};
 
 /// Main menu - clean, stateless menu
 pub struct MainMenu;
@@ -15,7 +15,7 @@ impl MenuScreen for MainMenu {
     //     "Main Menu"
     // }
 
-    fn render(&self, data: MenuData) -> MenuRender {
+    fn render(&self, data: &BbsSession) -> MenuRender {
         let title = format!("{} - MAIN MENU", data.config.bbs.name);
         let mut items = vec![];
 
@@ -61,7 +61,7 @@ impl MenuScreen for MainMenu {
         MenuRender::with_items(&title, items, "\nEnter your choice: ")
     }
 
-    fn handle_input(&self, data: MenuData, input: &str) -> MenuAction {
+    fn handle_input(&self, data: &BbsSession, input: &str) -> MenuAction {
         match input.to_lowercase().as_str() {
             "1" => {
                 if data.config.features.bulletins_enabled {
@@ -70,8 +70,9 @@ impl MenuScreen for MainMenu {
                     MenuAction::ShowMessage("Bulletin Board is currently disabled.".to_string())
                 }
             }
-            "2" | "3" | "4" => MenuAction::ShowMessage("Feature coming soon!".to_string()),
-            // "2" => MenuAction::GoTo(CurrentMenu::Users),
+            "2" => MenuAction::GoTo(Menu::Users),
+
+            "3" | "4" => MenuAction::ShowMessage("Feature coming soon!".to_string()),
             // "3" => MenuAction::GoTo(CurrentMenu::Messages),
             // "4" => {
             //     if data.config.features.file_uploads_enabled {
@@ -80,6 +81,7 @@ impl MenuScreen for MainMenu {
             //         MenuAction::ShowMessage("File Library is currently disabled.".to_string())
             //     }
             // },
+
             "l" | "login" => {
                 if !data.is_logged_in() && data.allow_anonymous() {
                     MenuAction::Login

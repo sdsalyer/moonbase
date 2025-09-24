@@ -1,15 +1,16 @@
 use crate::box_renderer::{BoxRenderer, BoxStyle};
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
-use crate::menu::{Menu, MenuAction, MenuData, MenuRender, MenuScreen};
-use crate::user_repository::JsonUserStorage;
+use crate::menu::{Menu, MenuAction, MenuRender, MenuScreen, RecentLogin, UserStats};
+use crate::user_repository::{JsonUserStorage};
 use crate::users::{RegistrationRequest, User};
+
 use crossterm::{
-    cursor,
+    QueueableCommand, cursor,
     style::{Color, Print, ResetColor, SetForegroundColor},
     terminal::{Clear, ClearType},
-    QueueableCommand,
 };
+
 use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
@@ -19,6 +20,7 @@ pub struct BbsSession {
     pub config: Arc<BbsConfig>,
     pub user: Option<User>,
     pub menu_current: Menu,
+    pub user_stats: Option<UserStats>,
 
     // Session resources
     user_storage: Arc<Mutex<JsonUserStorage>>,
@@ -28,7 +30,7 @@ pub struct BbsSession {
     // Menu instances (owned by session, can maintain state)
     menu_main: crate::menu::menu_main::MainMenu,
     menu_bulletin: crate::menu::menu_bulletin::BulletinMenu,
-    // menu_user: crate::menu::menu_user::UserMenu,
+    menu_user: crate::menu::menu_user::UserMenu,
     // menu_message: crate::menu::menu_message::MessageMenu,
     // menu_file: crate::menu::menu_file::FileMenu,
 }
@@ -42,13 +44,32 @@ impl BbsSession {
             user: None,
             menu_current: Menu::Main,
             user_storage,
+            user_stats: None,
             box_renderer,
             login_attempts: 0,
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
-            // menu_user: crate::menu::menu_user::UserMenu::new(),
+            menu_user: crate::menu::menu_user::UserMenu::new(),
             // menu_message: crate::menu::menu_message::MessageMenu::new(),
             // menu_file: crate::menu::menu_file::FileMenu::new(),
+        }
+    }
+
+    pub fn is_logged_in(&self) -> bool {
+        self.user.is_some()
+    }
+
+    /// Helper to check if anonymous access is allowed
+    pub fn allow_anonymous(&self) -> bool {
+        self.config.features.allow_anonymous
+    }
+
+    /// Get the current username, or "Anonymous" if not logged in
+    pub fn display_username(&self) -> String {
+        match &self.user {
+            // TODO: why clone
+            Some(u) => u.username.clone(),
+            None => "Anonymous".to_string(),
         }
     }
 
@@ -83,39 +104,82 @@ impl BbsSession {
         match self.menu_current {
             Menu::Main => &self.menu_main,
             Menu::Bulletins => &self.menu_bulletin,
-            // CurrentMenu::Users => &self.menu_user,
+            Menu::Users => &self.menu_user,
             // CurrentMenu::Messages => &self.menu_message,
             // CurrentMenu::Files => &self.menu_file,
         }
     }
 
-    /// Create MenuData for current session state
-    fn menu_create_data(&self) -> MenuData<'_> {
-        MenuData {
-            config: &self.config,
-            username: self.user.as_ref().map(|user| &user.username),
+    /// Calculate current user statistics
+    fn calculate_user_stats(&mut self) -> BbsResult<()> {
+        let storage = self
+            .user_storage
+            .lock()
+            .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
+
+        let stats = storage.get_stats()?;
+        let total_users = stats.total_users;
+        let all_users = stats.all_users;
+        let online_users = stats.online_users;
+
+        // Get recent logins (limit to 5 most recent)
+        let mut recent_logins = stats.recent_logins;
+
+        // Add current user if logged in
+        if let Some(ref current_user) = self.user {
+            recent_logins.push(RecentLogin {
+                username: current_user.username.clone(),
+                last_login_display: "just now".to_string(),
+                is_current_user: true,
+            });
+        } else {
+            // Add anonymous user
+            recent_logins.push(RecentLogin {
+                username: "Anonymous".to_string(),
+                last_login_display: "just now".to_string(),
+                is_current_user: true,
+            });
         }
+
+        // TODO: query the storage for actual recent logins sorted by last_login timestamp
+        // For now, add the sysop as an example
+        recent_logins.push(RecentLogin {
+            username: "SysOp".to_string(),
+            last_login_display: "2 hours ago".to_string(),
+            is_current_user: false,
+        });
+
+        self.user_stats = Some(UserStats {
+            total_users,
+            online_users,
+            all_users,
+            recent_logins,
+        });
+
+        Ok(())
     }
 
     /// Main menu loop - render, display, get input, handle action
     fn menu_handle_loop(&mut self, stream: &mut TcpStream) -> BbsResult<bool> {
-        // 1. Get current menu
+
+        // 1. Check user stats
+        // This has to come first because of the mutable borrow
+        let _ = self.calculate_user_stats();
+
+        // 2. Get current menu
         let menu_current = self.menu_get_current();
 
-        // 2. Create menu data
-        let menu_data = self.menu_create_data();
-
         // 3. Render menu (pure function, returns data)
-        let menu_render = menu_current.render(menu_data);
+        let menu_render = menu_current.render(&self);
 
         // 4. Display menu (session handles I/O)
-        self.menu_show(stream, &menu_render)?;
+        let _ = self.menu_show(stream, &menu_render)?;
 
         // 5. Get input (session handles I/O)
         let input = self.get_input(stream, &menu_render.prompt)?;
 
         // 6. Handle input (pure function, returns action)
-        let action = menu_current.handle_input(menu_data, &input);
+        let action = menu_current.handle_input(&self, &input);
 
         // 7. Process action (session handles state changes)
         self.menu_handle_action(stream, action)

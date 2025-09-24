@@ -1,18 +1,18 @@
 pub mod menu_bulletin;
 pub mod menu_main;
-// pub mod user_menu;
+pub mod menu_user;
 // pub mod message_menu;
 // pub mod file_menu;
 
 use crate::box_renderer::MenuItem;
-use crate::config::BbsConfig;
+use crate::session::BbsSession;
 
 /// Current menu state
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Menu {
     Main,
     Bulletins,
-    // Users,
+    Users,
     // Messages,
     // Files,
 }
@@ -28,32 +28,21 @@ pub enum MenuAction {
     ShowMessage(String),
 }
 
-/// Lightweight data struct passed to menus - contains only what they need to read
-#[derive(Copy, Clone)]
-pub struct MenuData<'a> {
-    pub config: &'a BbsConfig,
-    pub username: Option<&'a String>,
+/// Statistics about users for display in menus
+#[derive(Debug, Default, Clone)]
+pub struct UserStats {
+    pub total_users: usize,
+    pub online_users: usize,
+    pub all_users: Vec<String>,
+    pub recent_logins: Vec<RecentLogin>,
 }
 
-impl<'a> MenuData<'a> {
-    /// Helper to check if user is logged in
-    pub fn is_logged_in(&self) -> bool {
-        self.username.is_some()
-    }
-
-    /// Helper to check if anonymous access is allowed
-    pub fn allow_anonymous(&self) -> bool {
-        self.config.features.allow_anonymous
-    }
-
-    /// Get the current username, or "Anonymous" if not logged in
-    pub fn display_username(&self) -> String {
-        match self.username {
-            // TODO: why clone
-            Some(name) => name.clone(),
-            None => "Anonymous".to_string(),
-        }
-    }
+/// Information about recent user logins
+#[derive(Debug, Clone)]
+pub struct RecentLogin {
+    pub username: String,
+    pub last_login_display: String,
+    pub is_current_user: bool,
 }
 
 /// Output from menu rendering - contains all display information
@@ -92,10 +81,10 @@ impl MenuRender {
 /// The Menu trait - clean interface with no I/O dependencies
 pub trait MenuScreen {
     /// Render the menu - pure function that returns display data
-    fn render(&self, data: MenuData) -> MenuRender;
+    fn render(&self, data: &BbsSession) -> MenuRender;
 
     /// Handle user input - pure function that returns an action
-    fn handle_input(&self, data: MenuData, input: &str) -> MenuAction;
+    fn handle_input(&self, data: &BbsSession, input: &str) -> MenuAction;
 
     // Optional method with default implementation for menu name
     // fn name(&self) -> &'static str {
