@@ -28,11 +28,11 @@ impl MenuScreen for UserMenu {
             Some(stats) => {
                 // Real user statistics from storage
                 items.push(MenuItem::info(&format!(
-                    "👥 Users currently online: {}",
+                    "* Users currently online: {}",
                     stats.online_users
                 )));
                 items.push(MenuItem::info(&format!(
-                    "👤 Total registered users: {}",
+                    "* Total registered users: {}",
                     stats.total_users
                 )));
                 items.push(MenuItem::separator());

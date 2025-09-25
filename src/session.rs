@@ -1,7 +1,8 @@
 use crate::box_renderer::{BoxRenderer, BoxStyle};
+use crate::bulletin_repository::JsonBulletinStorage;
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
-use crate::menu::{Menu, MenuAction, MenuRender, MenuScreen, RecentLogin, UserStats};
+use crate::menu::{BulletinStats, Menu, MenuAction, MenuRender, MenuScreen, RecentLogin, UserStats};
 use crate::user_repository::{JsonUserStorage};
 use crate::users::{RegistrationRequest, User};
 
@@ -21,9 +22,11 @@ pub struct BbsSession {
     pub user: Option<User>,
     pub menu_current: Menu,
     pub user_stats: Option<UserStats>,
+    pub bulletin_stats: Option<BulletinStats>,
 
     // Session resources
     user_storage: Arc<Mutex<JsonUserStorage>>,
+    bulletin_storage: Arc<Mutex<JsonBulletinStorage>>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
 
@@ -36,7 +39,7 @@ pub struct BbsSession {
 }
 
 impl BbsSession {
-    pub fn new(config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>) -> Self {
+    pub fn new(config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>, bulletin_storage: Arc<Mutex<JsonBulletinStorage>>) -> Self {
         let box_renderer = BoxRenderer::new(BoxStyle::Ascii, config.ui.use_colors);
 
         Self {
@@ -44,7 +47,9 @@ impl BbsSession {
             user: None,
             menu_current: Menu::Main,
             user_storage,
+            bulletin_storage,
             user_stats: None,
+            bulletin_stats: None,
             box_renderer,
             login_attempts: 0,
             menu_main: crate::menu::menu_main::MainMenu::new(),
