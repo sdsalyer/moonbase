@@ -1,10 +1,41 @@
 use crate::bulletins::{Bulletin, BulletinRequest};
 use crate::errors::{BbsError, BbsResult};
-use crate::menu::{BulletinStats, BulletinSummary};
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+/// Bulletin statistics for display
+#[derive(Debug, Clone, Default)]
+pub struct BulletinStats {
+    pub total_bulletins: usize,
+    pub unread_count: usize,
+    pub recent_bulletins: Vec<BulletinSummary>,
+}
+
+/// Summary of a bulletin for menu display
+#[derive(Debug, Clone)]
+pub struct BulletinSummary {
+    pub id: u32,
+    pub title: String,
+    pub author: String,
+    pub posted_display: String,
+    pub is_sticky: bool,
+    pub is_read: bool,
+}
+
+impl From<(&Bulletin, bool)> for BulletinSummary {
+    fn from((bulletin, is_read): (&Bulletin, bool)) -> Self {
+        Self {
+            id: bulletin.id,
+            title: bulletin.title.clone(),
+            author: bulletin.author.clone(),
+            posted_display: bulletin.posted_display(),
+            is_sticky: bulletin.is_sticky,
+            is_read,
+        }
+    }
+}
 // pub trait BulletinStorage {
 //     fn load_bulletin(&self, id: u32) -> BbsResult<Option<Bulletin>>;
 //     fn save_bulletin(&mut self, bulletin: &Bulletin) -> BbsResult<()>;
@@ -544,7 +575,72 @@ impl BulletinStorage for JsonBulletinStorage {
 //     pub is_sticky: bool,
 //     pub is_read: bool,
 // }
-// 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+    
+    #[test]
+    fn test_bulletin_posting_and_reading() -> BbsResult<()> {
+        // Create temporary directory for test
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.path().to_str().unwrap();
+        
+        // Create bulletin storage
+        let mut storage = JsonBulletinStorage::new(temp_path)?;
+        
+        // Create a test bulletin
+        let request = crate::bulletins::BulletinRequest::new(
+            "Test Bulletin".to_string(),
+            "This is test content for the bulletin.".to_string(),
+            "TestUser".to_string()
+        );
+        
+        // Mock config for validation
+        let config = crate::config::BbsConfig::default();
+        
+        // Post the bulletin
+        let bulletin_id = storage.post_bulletin(&request, &config)?;
+        
+        // Verify it was created with ID 1
+        assert_eq!(bulletin_id, 1);
+        
+        // Load the bulletin back
+        let loaded_bulletin = storage.load_bulletin(bulletin_id)?;
+        
+        // Verify the bulletin was loaded correctly
+        assert!(loaded_bulletin.is_some());
+        let bulletin = loaded_bulletin.unwrap();
+        assert_eq!(bulletin.title, "Test Bulletin");
+        assert_eq!(bulletin.content, "This is test content for the bulletin.");
+        assert_eq!(bulletin.author, "TestUser");
+        assert_eq!(bulletin.id, 1);
+        assert!(!bulletin.is_sticky);
+        assert!(bulletin.read_by.is_empty());
+        
+        // Test marking as read
+        storage.mark_read(bulletin_id, "TestUser")?;
+        
+        // Verify it's marked as read
+        let updated_bulletin = storage.load_bulletin(bulletin_id)?.unwrap();
+        assert!(updated_bulletin.is_read_by("TestUser"));
+        
+        // Test statistics
+        let stats = storage.get_stats(Some("TestUser"));
+        assert_eq!(stats.total_bulletins, 1);
+        assert_eq!(stats.unread_count, 0); // Read by TestUser
+        assert_eq!(stats.recent_bulletins.len(), 1);
+        
+        let summary = &stats.recent_bulletins[0];
+        assert_eq!(summary.id, bulletin_id);
+        assert_eq!(summary.title, "Test Bulletin");
+        assert_eq!(summary.author, "TestUser");
+        assert!(summary.is_read);
+        
+        Ok(())
+    }
+}
 // impl From<(&Bulletin, bool)> for BulletinSummary {
 //     fn from((bulletin, is_read): (&Bulletin, bool)) -> Self {
 //         Self {

@@ -1,5 +1,5 @@
 use super::{Menu, MenuAction, MenuRender, MenuScreen};
-use crate::{box_renderer::MenuItem, menu::BulletinStats, session::BbsSession};
+use crate::{box_renderer::MenuItem, bulletin_repository::BulletinStats, session::BbsSession};
 
 /// Bulletin menu actions
 #[derive(Debug, Clone, PartialEq)]
@@ -101,7 +101,18 @@ impl MenuScreen for BulletinMenu {
             Action::Menu(m) => m,
 
             Action::Bulletin(b) => match b {
-                _ => MenuAction::ShowMessage(format!("TODO: Handle {:?}", b)),
+                BulletinMenuAction::BulletinPost => MenuAction::BulletinPost,
+                BulletinMenuAction::BulletinRead(id) => MenuAction::BulletinRead(id),
+                BulletinMenuAction::BulletinSubmit { title, content } => {
+                    MenuAction::BulletinSubmit { title, content }
+                }
+                BulletinMenuAction::BulletinPostContent(title) => {
+                    MenuAction::BulletinPostContent(title)
+                }
+                BulletinMenuAction::BulletinList => MenuAction::BulletinList,
+                BulletinMenuAction::BulletinBackToMenu => MenuAction::BulletinBackToMenu,
+                BulletinMenuAction::BulletinToggleReadFilter => MenuAction::BulletinToggleReadFilter,
+                BulletinMenuAction::BulletinToggleUnreadOnly => MenuAction::BulletinToggleUnreadOnly,
             },
         }
     }
@@ -237,16 +248,29 @@ impl BulletinMenu {
                 MenuItem::separator(),
             ];
 
-            // This would show the full content - in practice you'd get this from the bulletin storage
+            // Show the full content - we'll need to load it from storage
             items.push(MenuItem::info("📄 Content:"));
             items.push(MenuItem::info(""));
-            items.push(MenuItem::info(
-                "[Full bulletin content would be displayed here]",
-            ));
-            items.push(MenuItem::info(
-                "This is where the complete bulletin text would appear,",
-            ));
-            items.push(MenuItem::info("formatted nicely for reading."));
+            
+            // TODO: In a real implementation, we'd fetch the full bulletin content here
+            // For now, we'll show placeholder content based on the summary
+            let content_lines = vec![
+                "This is the bulletin content that would be loaded from storage.",
+                "Each line of the bulletin would be displayed here with proper",
+                "formatting and word wrapping as needed for the terminal width.",
+                "",
+                "The bulletin system supports rich content including:",
+                "• Multiple paragraphs",
+                "• Lists and formatting", 
+                "• Special characters and symbols",
+                "",
+                "[This is placeholder content - real implementation would load",
+                "the actual bulletin text from the storage system.]"
+            ];
+            
+            for line in content_lines {
+                items.push(MenuItem::info(line));
+            }
 
             items.push(MenuItem::separator());
             items.push(MenuItem::option("N", "Next bulletin"));
