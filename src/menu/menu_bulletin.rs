@@ -158,11 +158,11 @@ impl BulletinMenu {
             // Show recent bulletins
             for (i, summary) in stats.recent_bulletins.iter().take(5).enumerate() {
                 let status = if summary.is_sticky {
-                    "📌"
+                    "[*]"
                 } else if !summary.is_read {
-                    "🆕"
+                    "[N]"
                 } else {
-                    "  "
+                    "   "
                 };
 
                 let title = if summary.title.len() > 35 {
@@ -242,14 +242,14 @@ impl BulletinMenu {
         // Find the bulletin being read
         if let Some(summary) = stats.recent_bulletins.iter().find(|b| b.id == bulletin_id) {
             let mut items = vec![
-                MenuItem::info(&format!("📋 Bulletin #{}: {}", summary.id, summary.title)),
-                MenuItem::info(&format!("👤 Author: {}", summary.author)),
-                MenuItem::info(&format!("📅 Posted: {}", summary.posted_display)),
+                MenuItem::info(&format!("Bulletin #{}: {}", summary.id, summary.title)),
+                MenuItem::info(&format!("Author: {}", summary.author)),
+                MenuItem::info(&format!("Posted: {}", summary.posted_display)),
                 MenuItem::separator(),
             ];
 
             // Show the full content - we'll need to load it from storage
-            items.push(MenuItem::info("📄 Content:"));
+            items.push(MenuItem::info("Content:"));
             items.push(MenuItem::info(""));
             
             // TODO: In a real implementation, we'd fetch the full bulletin content here
@@ -260,9 +260,9 @@ impl BulletinMenu {
                 "formatting and word wrapping as needed for the terminal width.",
                 "",
                 "The bulletin system supports rich content including:",
-                "• Multiple paragraphs",
-                "• Lists and formatting", 
-                "• Special characters and symbols",
+                "- Multiple paragraphs",
+                "- Lists and formatting", 
+                "- Special characters and symbols",
                 "",
                 "[This is placeholder content - real implementation would load",
                 "the actual bulletin text from the storage system.]"
@@ -300,7 +300,7 @@ impl BulletinMenu {
         let author = data.display_username();
 
         let items = vec![
-            MenuItem::info(&format!("📝 Posting as: {}", author)),
+            MenuItem::info(&format!("Posting as: {}", author)),
             MenuItem::info(""),
             MenuItem::info("Enter bulletin title (max 100 characters):"),
             MenuItem::info("- Keep it descriptive but concise"),
@@ -317,8 +317,8 @@ impl BulletinMenu {
         let author = data.display_username();
 
         let items = vec![
-            MenuItem::info(&format!("📝 Posting as: {}", author)),
-            MenuItem::info(&format!("📋 Title: {}", title)),
+            MenuItem::info(&format!("Posting as: {}", author)),
+            MenuItem::info(&format!("Title: {}", title)),
             MenuItem::info(""),
             MenuItem::info(&format!(
                 "Enter bulletin content (max {} characters):",

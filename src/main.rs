@@ -46,11 +46,11 @@ fn main() -> BbsResult<()> {
     // Initialize shared user storage
     let user_storage = match JsonUserStorage::new("data") {
         Ok(storage) => {
-            println!("✓ User storage initialized");
+            println!("+ User storage initialized");
             Arc::new(Mutex::new(storage))
         }
         Err(e) => {
-            eprintln!("❌ Failed to initialize user storage: {}", e);
+            eprintln!("x Failed to initialize user storage: {}", e);
             return Err(e);
         }
     };
@@ -58,11 +58,11 @@ fn main() -> BbsResult<()> {
     // Initialize shared bulletin storage
     let bulletin_storage = match JsonBulletinStorage::new("data") {
         Ok(storage) => {
-            println!("✓ Bulletin storage initialized");
+            println!("+ Bulletin storage initialized");
             Arc::new(Mutex::new(storage))
         }
         Err(e) => {
-            eprintln!("❌ Failed to initialize bulletin storage: {}", e);
+            eprintln!("x Failed to initialize bulletin storage: {}", e);
             return Err(e);
         }
     };

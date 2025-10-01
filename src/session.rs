@@ -449,7 +449,7 @@ Location: {}
         stream.queue(cursor::MoveTo(0, 0))?;
 
         let instructions = format!(
-            "Create your account:\n\nUsername rules:\n• 1-{} characters\n• Letters, numbers, underscore only\n• Must be unique",
+            "Create your account:\n\nUsername rules:\n- 1-{} characters\n- Letters, numbers, underscore only\n- Must be unique",
             self.config.features.max_username_length
         );
         self.box_renderer.render_message_box(
