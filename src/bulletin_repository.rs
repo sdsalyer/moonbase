@@ -16,7 +16,7 @@ pub struct BulletinStats {
 /// Summary of a bulletin for menu display
 #[derive(Debug, Clone)]
 pub struct BulletinSummary {
-    pub id: u32,
+    //pub id: u32,
     pub title: String,
     pub author: String,
     pub posted_display: String,
@@ -27,7 +27,7 @@ pub struct BulletinSummary {
 impl From<(&Bulletin, bool)> for BulletinSummary {
     fn from((bulletin, is_read): (&Bulletin, bool)) -> Self {
         Self {
-            id: bulletin.id,
+            // id: bulletin.id,
             title: bulletin.title.clone(),
             author: bulletin.author.clone(),
             posted_display: bulletin.posted_display(),
@@ -364,7 +364,7 @@ mod tests {
         assert_eq!(stats.recent_bulletins.len(), 1);
 
         let summary = &stats.recent_bulletins[0];
-        assert_eq!(summary.id, bulletin_id);
+        // assert_eq!(summary.id, bulletin_id);
         assert_eq!(summary.title, "Test Bulletin");
         assert_eq!(summary.author, "TestUser");
         assert!(summary.is_read);

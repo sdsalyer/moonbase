@@ -28,7 +28,7 @@ pub enum Action {
 pub enum BulletinMenuState {
     MainMenu,
     Listing(Vec<Bulletin>),
-    Reading(u32),           // Reading specific bulletin ID
+    Reading(Bulletin),      // Reading specific bulletin ID
     Posting,                // Posting new bulletin
     PostingContent(String), // Posting - have title, getting content
 }
@@ -77,7 +77,7 @@ impl MenuScreen for BulletinMenu {
         match &self.state {
             BulletinMenuState::MainMenu => self.render_main_menu(data),
             BulletinMenuState::Listing(list) => self.render_listing_menu(data, list),
-            BulletinMenuState::Reading(id) => self.render_reading_menu(data, *id),
+            BulletinMenuState::Reading(bulletin) => self.render_reading_menu(data, bulletin),
             BulletinMenuState::Posting => self.render_posting_menu(data),
             BulletinMenuState::PostingContent(title) => {
                 self.render_posting_content_menu(data, title)
@@ -93,7 +93,9 @@ impl MenuScreen for BulletinMenu {
         let action = match &self.state {
             BulletinMenuState::MainMenu => self.handle_main_input(data, input),
             BulletinMenuState::Listing(list) => self.handle_listing_input(data, input, list),
-            BulletinMenuState::Reading(id) => self.handle_reading_input(data, input, *id),
+            BulletinMenuState::Reading(bulletin) => {
+                self.handle_reading_input(data, input, bulletin)
+            }
             BulletinMenuState::Posting => self.handle_posting_input(data, input),
             BulletinMenuState::PostingContent(title) => {
                 self.handle_posting_content_input(data, input, title)
@@ -335,68 +337,50 @@ impl BulletinMenu {
         MenuRender::with_items("ALL BULLETINS", menu, "\nChoice: ")
     }
 
-    fn render_reading_menu(&self, data: &BbsSession, bulletin_id: u32) -> MenuRender {
-        // Show bulletin statistics
-        let stats = match &data.bulletin_stats {
-            Some(s) => s,
-            None => &BulletinStats::default(),
-        };
+    fn render_reading_menu(&self, data: &BbsSession, bulletin: &Bulletin) -> MenuRender {
+        let mut items = vec![
+            MenuItem::info(&format!("Bulletin #{}: {}", bulletin.id, bulletin.title)),
+            MenuItem::info(&format!("Author: {}", bulletin.author)),
+            MenuItem::info(&format!("Posted: {}", bulletin.posted_display())),
+            MenuItem::separator(),
+        ];
 
-        // Find the bulletin being read
-        if let Some(summary) = stats.recent_bulletins.iter().find(|b| b.id == bulletin_id) {
-            let mut items = vec![
-                MenuItem::info(&format!("Bulletin #{}: {}", summary.id, summary.title)),
-                MenuItem::info(&format!("Author: {}", summary.author)),
-                MenuItem::info(&format!("Posted: {}", summary.posted_display)),
-                MenuItem::separator(),
-            ];
+        // Show the full content - we'll need to load it from storage
+        items.push(MenuItem::info("Content:"));
+        items.push(MenuItem::info(""));
 
-            // Show the full content - we'll need to load it from storage
-            items.push(MenuItem::info("Content:"));
-            items.push(MenuItem::info(""));
+        // TODO: In a real implementation, we'd fetch the full bulletin content here
+        // For now, we'll show placeholder content based on the summary
+        // let content_lines = vec![
+        //     "This is the bulletin content that would be loaded from storage.",
+        //     "Each line of the bulletin would be displayed here with proper",
+        //     "formatting and word wrapping as needed for the terminal width.",
+        //     "",
+        //     "The bulletin system supports rich content including:",
+        //     "- Multiple paragraphs",
+        //     "- Lists and formatting",
+        //     "- Special characters and symbols",
+        //     "",
+        //     "[This is placeholder content - real implementation would load",
+        //     "the actual bulletin text from the storage system.]",
+        // ];
 
-            // TODO: In a real implementation, we'd fetch the full bulletin content here
-            // For now, we'll show placeholder content based on the summary
-            let content_lines = vec![
-                "This is the bulletin content that would be loaded from storage.",
-                "Each line of the bulletin would be displayed here with proper",
-                "formatting and word wrapping as needed for the terminal width.",
-                "",
-                "The bulletin system supports rich content including:",
-                "- Multiple paragraphs",
-                "- Lists and formatting",
-                "- Special characters and symbols",
-                "",
-                "[This is placeholder content - real implementation would load",
-                "the actual bulletin text from the storage system.]",
-            ];
-
-            for line in content_lines {
-                items.push(MenuItem::info(line));
-            }
-
-            items.push(MenuItem::separator());
-            items.push(MenuItem::option("N", "Next bulletin"));
-            items.push(MenuItem::option("P", "Previous bulletin"));
-            items.push(MenuItem::option("L", "List all bulletins"));
-            items.push(MenuItem::option("B", "Back to bulletin menu"));
-
-            MenuRender::with_items(
-                &format!("READING BULLETIN #{}", bulletin_id),
-                items,
-                "\nChoice: ",
-            )
-        } else {
-            let items = vec![
-                MenuItem::info(&format!(
-                    "Bulletin #{} not found or no longer available.",
-                    bulletin_id
-                )),
-                MenuItem::separator(),
-                MenuItem::option("B", "Back to bulletin menu"),
-            ];
-            MenuRender::with_items("BULLETIN NOT FOUND", items, "\nChoice: ")
+        let width = &data.config.ui.menu_width;
+        for line in bulletin.get_content_lines(*width-4) {
+            items.push(MenuItem::info(&line));
         }
+
+        items.push(MenuItem::separator());
+        items.push(MenuItem::option("N", "Next bulletin"));
+        items.push(MenuItem::option("P", "Previous bulletin"));
+        items.push(MenuItem::option("L", "List all bulletins"));
+        items.push(MenuItem::option("B", "Back to bulletin menu"));
+
+        MenuRender::with_items(
+            &format!("READING BULLETIN #{}", bulletin.id),
+            items,
+            "\nChoice: ",
+        )
     }
 
     fn render_posting_menu(&self, data: &BbsSession) -> MenuRender {
@@ -532,7 +516,12 @@ impl BulletinMenu {
         }
     }
 
-    fn handle_reading_input(&self, _data: &BbsSession, input: &str, _bulletin_id: u32) -> Action {
+    fn handle_reading_input(
+        &self,
+        _data: &BbsSession,
+        input: &str,
+        _bulletin: &Bulletin,
+    ) -> Action {
         match input.to_lowercase().as_str() {
             "n" => Action::Menu(MenuAction::ShowMessage(
                 "Next bulletin... (Feature integration needed!)".to_string(),

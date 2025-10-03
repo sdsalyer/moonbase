@@ -703,7 +703,7 @@ Location: {}
         };
 
         match bulletin {
-            Some(_bulletin) => {
+            Some(bulletin) => {
                 // Mark as read for logged-in users
                 if let Some(user) = &self.user {
                     let mut storage = self.bulletin_storage.lock().map_err(|_| {
@@ -714,7 +714,7 @@ Location: {}
 
                 // Set menu to reading state
                 self.menu_bulletin.state =
-                    crate::menu::menu_bulletin::BulletinMenuState::Reading(id);
+                    crate::menu::menu_bulletin::BulletinMenuState::Reading(bulletin);
 
                 // Store bulletin content for display
                 // Note: In a real implementation, you might want to store this in the session

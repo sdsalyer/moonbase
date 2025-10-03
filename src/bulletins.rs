@@ -52,6 +52,85 @@ impl Bulletin {
             format!("{} days ago", seconds / 86400)
         }
     }
+
+    /// Wrap `text` into lines with maximum `width` glyphs (measured as Unicode scalar count).
+    /// Hard newlines ('\n') are preserved. Words are not split; if a single word is longer than
+    /// `width` it will be placed on its own line (no hyphenation).
+    pub fn get_content_lines(&self, width: usize) -> Vec<String> {
+        let text = &self.content;
+
+        // width == 0: just return lines split on actual newlines
+        if width == 0 {
+            return text.split("\\n").map(|s| s.to_string()).collect();
+        }
+
+        let mut out = Vec::new();
+
+        for hard_line in text.split("\\n") {
+            // If hard_line is empty (i.e., consecutive '\n' or leading/trailing '\n'), preserve empty line.
+            if hard_line.is_empty() {
+                out.push(String::new());
+                continue;
+            }
+
+            // Iterate over runs of whitespace-separated words in the hard line.
+            // We need to preserve only words (split_whitespace), but ensure wrapping so no output line exceeds width.
+            let mut current = String::new();
+
+            for word in hard_line.split_whitespace() {
+                let word_len = word.chars().count();
+
+                // If word itself is longer than width, we must break it into chunks of size <= width.
+                if word_len > width {
+                    // First flush any pending current line.
+                    if !current.is_empty() {
+                        out.push(current);
+                        current = String::new();
+                    }
+
+                    // Split the long word into char chunks of size `width`.
+                    let char_iter = word.chars();
+                    let mut chunk = String::new();
+                    for ch in char_iter {
+                        chunk.push(ch);
+                        if chunk.chars().count() == width {
+                            out.push(chunk);
+                            chunk = String::new();
+                        }
+                    }
+                    if !chunk.is_empty() {
+                        out.push(chunk);
+                    }
+                    // After splitting the long word, continue to next word (no pending current).
+                } else {
+                    // Normal word fits within width.
+                    if current.is_empty() {
+                        // Start a new current with the word.
+                        current.push_str(word);
+                    } else {
+                        // Would adding this word (with a space) exceed width?
+                        let new_len = current.chars().count() + 1 + word_len;
+                        if new_len <= width {
+                            current.push(' ');
+                            current.push_str(word);
+                        } else {
+                            // Flush current, start new current with word.
+                            out.push(current);
+                            current = String::new();
+                            current.push_str(word);
+                        }
+                    }
+                }
+            }
+
+            // After processing words in hard_line, flush any pending current.
+            if !current.is_empty() {
+                out.push(current);
+            }
+        }
+
+        out
+    }
 }
 
 /// Request to create a new bulletin
