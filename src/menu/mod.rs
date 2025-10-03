@@ -27,6 +27,8 @@ pub enum MenuAction {
     Logout,
     Quit,
     ShowMessage(String),
+
+    // TODO: generalize this like GoToSubMenu(SubMenu)?
     // Bulletin-specific actions
     BulletinPost,
     BulletinRead(u32),
@@ -81,13 +83,6 @@ impl MenuRender {
     }
 }
 
-// Display interface that session provides to show menu output
-// pub trait Display {
-//     fn show_menu(&mut self, render: &MenuRender) -> BbsResult<()>;
-//     fn show_message(&mut self, title: &str, message: &str, color: Option<Color>) -> BbsResult<()>;
-//     fn show_feature_disabled(&mut self, feature_name: &str, sysop_name: &str) -> BbsResult<()>;
-// }
-//
 /// The Menu trait - clean interface with no I/O dependencies
 pub trait MenuScreen {
     /// Render the menu - pure function that returns display data

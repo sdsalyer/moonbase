@@ -1,9 +1,10 @@
 use crate::box_renderer::{BoxRenderer, BoxStyle};
-use crate::bulletin_repository::{JsonBulletinStorage, BulletinStorage, BulletinStats};
+use crate::bulletin_repository::{BulletinStats, BulletinStorage, JsonBulletinStorage};
+use crate::bulletins::Bulletin;
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
 use crate::menu::{Menu, MenuAction, MenuRender, MenuScreen, RecentLogin, UserStats};
-use crate::user_repository::{JsonUserStorage};
+use crate::user_repository::JsonUserStorage;
 use crate::users::{RegistrationRequest, User};
 
 use crossterm::{
@@ -39,7 +40,11 @@ pub struct BbsSession {
 }
 
 impl BbsSession {
-    pub fn new(config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>, bulletin_storage: Arc<Mutex<JsonBulletinStorage>>) -> Self {
+    pub fn new(
+        config: Arc<BbsConfig>,
+        user_storage: Arc<Mutex<JsonUserStorage>>,
+        bulletin_storage: Arc<Mutex<JsonBulletinStorage>>,
+    ) -> Self {
         let box_renderer = BoxRenderer::new(BoxStyle::Ascii, config.ui.use_colors);
 
         Self {
@@ -169,7 +174,6 @@ impl BbsSession {
 
     /// Main menu loop - render, display, get input, handle action
     fn menu_handle_loop(&mut self, stream: &mut TcpStream) -> BbsResult<bool> {
-
         // 1. Check user stats
         // This has to come first because of the mutable borrow
         let _ = self.calculate_user_stats();
@@ -178,16 +182,16 @@ impl BbsSession {
         let menu_current = self.menu_get_current();
 
         // 3. Render menu (pure function, returns data)
-        let menu_render = menu_current.render(&self);
+        let menu_render = menu_current.render(self);
 
         // 4. Display menu (session handles I/O)
-        let _ = self.menu_show(stream, &menu_render)?;
+        self.menu_show(stream, &menu_render)?;
 
         // 5. Get input (session handles I/O)
         let input = self.get_input(stream, &menu_render.prompt)?;
 
         // 6. Handle input (pure function, returns action)
-        let action = menu_current.handle_input(&self, &input);
+        let action = menu_current.handle_input(self, &input);
 
         // 7. Process action (session handles state changes)
         self.menu_handle_action(stream, action)
@@ -232,6 +236,7 @@ impl BbsSession {
                 )?;
                 Ok(true)
             }
+
             // Bulletin-specific actions
             MenuAction::BulletinPost => {
                 self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::Posting;
@@ -246,12 +251,13 @@ impl BbsSession {
                 Ok(true)
             }
             MenuAction::BulletinPostContent(title) => {
-                self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::PostingContent(title);
+                self.menu_bulletin.state =
+                    crate::menu::menu_bulletin::BulletinMenuState::PostingContent(title);
                 Ok(true)
             }
             MenuAction::BulletinList => {
-                self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::MainMenu;
-                self.refresh_bulletin_stats()?;
+                let bulletins = self.get_all_bulletins()?;
+                self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::Listing(bulletins);
                 Ok(true)
             }
             MenuAction::BulletinBackToMenu => {
@@ -700,20 +706,20 @@ Location: {}
             Some(_bulletin) => {
                 // Mark as read for logged-in users
                 if let Some(user) = &self.user {
-                    let mut storage = self
-                        .bulletin_storage
-                        .lock()
-                        .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
+                    let mut storage = self.bulletin_storage.lock().map_err(|_| {
+                        BbsError::Configuration("Storage lock poisoned".to_string())
+                    })?;
                     storage.mark_read(id, &user.username)?;
                 }
 
                 // Set menu to reading state
-                self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::Reading(id);
-                
+                self.menu_bulletin.state =
+                    crate::menu::menu_bulletin::BulletinMenuState::Reading(id);
+
                 // Store bulletin content for display
                 // Note: In a real implementation, you might want to store this in the session
                 // For now, the menu will fetch it again when rendering
-                
+
                 self.refresh_bulletin_stats()?;
                 Ok(())
             }
@@ -737,7 +743,7 @@ Location: {}
         content: String,
     ) -> BbsResult<()> {
         let author = self.display_username();
-        
+
         // Create bulletin request
         let request = crate::bulletins::BulletinRequest::new(title.clone(), content, author);
 
@@ -755,10 +761,13 @@ Location: {}
                 self.show_message_with_stream(
                     stream,
                     "BULLETIN POSTED",
-                    &format!("Your bulletin '{}' has been posted as #{}", title, bulletin_id),
+                    &format!(
+                        "Your bulletin '{}' has been posted as #{}",
+                        title, bulletin_id
+                    ),
                     Some(Color::Green),
                 )?;
-                
+
                 // Reset menu state and refresh stats
                 self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::MainMenu;
                 self.refresh_bulletin_stats()?;
@@ -779,7 +788,7 @@ Location: {}
     /// Refresh bulletin statistics
     fn refresh_bulletin_stats(&mut self) -> BbsResult<()> {
         let current_user = self.user.as_ref().map(|u| u.username.as_str());
-        
+
         let stats = {
             let storage = self
                 .bulletin_storage
@@ -790,6 +799,19 @@ Location: {}
 
         self.bulletin_stats = Some(stats);
         Ok(())
+    }
+
+    /// Refresh bulletin statistics
+    fn get_all_bulletins(&mut self) -> BbsResult<Vec<Bulletin>> {
+        let bulletins = {
+            let storage = self
+                .bulletin_storage
+                .lock()
+                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
+            storage.list_bulletins()?
+        };
+
+        Ok(bulletins)
     }
 
     // Show feature disabled message

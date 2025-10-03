@@ -24,48 +24,44 @@ impl MenuScreen for UserMenu {
     fn render(&self, data: &BbsSession) -> MenuRender {
         let mut items = vec![];
 
-        match &data.user_stats {
-            Some(stats) => {
-                // Real user statistics from storage
-                items.push(MenuItem::info(&format!(
-                    "* Users currently online: {}",
-                    stats.online_users
-                )));
-                items.push(MenuItem::info(&format!(
-                    "* Total registered users: {}",
-                    stats.total_users
-                )));
-                items.push(MenuItem::separator());
+        if let Some(stats) = &data.user_stats {
+            // Real user statistics from storage
+            items.push(MenuItem::info(&format!(
+                "* Users currently online: {}",
+                stats.online_users
+            )));
+            items.push(MenuItem::info(&format!(
+                "* Total registered users: {}",
+                stats.total_users
+            )));
+            items.push(MenuItem::separator());
 
-                // Show sort/filter status
-                let sort_info = if self.sort_by_last_login {
-                    "Sorted by: Last login"
-                } else {
-                    "Sorted by: Username"
-                };
-                items.push(MenuItem::info(sort_info));
+            // Show sort/filter status
+            let sort_info = if self.sort_by_last_login {
+                "Sorted by: Last login"
+            } else {
+                "Sorted by: Username"
+            };
+            items.push(MenuItem::info(sort_info));
 
-                if !self.show_offline_users {
-                    items.push(MenuItem::info("(Hiding offline users)"));
-                }
-
-                items.push(MenuItem::separator());
-                items.push(MenuItem::info("Recent logins:"));
-
-                // Display real recent login data
-                for login in &stats.recent_logins {
-                    let suffix = if login.is_current_user { " (you)" } else { "" };
-                    items.push(MenuItem::info(&format!(
-                        "* {} - {}{}",
-                        login.username, login.last_login_display, suffix
-                    )));
-                }
-
-                items.push(MenuItem::separator());
+            if !self.show_offline_users {
+                items.push(MenuItem::info("(Hiding offline users)"));
             }
 
-            None => {}
-        }
+            items.push(MenuItem::separator());
+            items.push(MenuItem::info("Recent logins:"));
+
+            // Display real recent login data
+            for login in &stats.recent_logins {
+                let suffix = if login.is_current_user { " (you)" } else { "" };
+                items.push(MenuItem::info(&format!(
+                    "* {} - {}{}",
+                    login.username, login.last_login_display, suffix
+                )));
+            }
+
+            items.push(MenuItem::separator());
+        };
 
         items.push(MenuItem::option("L", "List all users"));
         items.push(MenuItem::option("W", "Who's online"));

@@ -1,17 +1,20 @@
 use super::{Menu, MenuAction, MenuRender, MenuScreen};
-use crate::{box_renderer::MenuItem, bulletin_repository::BulletinStats, session::BbsSession};
+use crate::{
+    box_renderer::MenuItem, bulletin_repository::BulletinStats, bulletins::Bulletin,
+    session::BbsSession,
+};
 
 /// Bulletin menu actions
 #[derive(Debug, Clone, PartialEq)]
 pub enum BulletinMenuAction {
-    BulletinPost,
-    BulletinToggleReadFilter,
-    BulletinToggleUnreadOnly,
-    BulletinRead(u32),
-    BulletinList,
-    BulletinBackToMenu,
-    BulletinSubmit { title: String, content: String },
-    BulletinPostContent(String),
+    Post,
+    ToggleReadFilter,
+    ToggleUnreadOnly,
+    Read(u32),
+    List,
+    BackToMenu,
+    Submit { title: String, content: String },
+    PostContent(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,9 +24,10 @@ pub enum Action {
 }
 
 /// Bulletin menu states
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum BulletinMenuState {
     MainMenu,
+    Listing(Vec<Bulletin>),
     Reading(u32),           // Reading specific bulletin ID
     Posting,                // Posting new bulletin
     PostingContent(String), // Posting - have title, getting content
@@ -45,10 +49,10 @@ impl BulletinMenu {
         }
     }
 
-    /// Reset to main bulletin menu
-    pub fn reset(&mut self) {
-        self.state = BulletinMenuState::MainMenu;
-    }
+    // // Reset to main bulletin menu
+    // pub fn reset(&mut self) {
+    //     self.state = BulletinMenuState::MainMenu;
+    // }
 
     /// Set filter options
     pub fn toggle_read_filter(&mut self) {
@@ -72,6 +76,7 @@ impl MenuScreen for BulletinMenu {
 
         match &self.state {
             BulletinMenuState::MainMenu => self.render_main_menu(data),
+            BulletinMenuState::Listing(list) => self.render_listing_menu(data, list),
             BulletinMenuState::Reading(id) => self.render_reading_menu(data, *id),
             BulletinMenuState::Posting => self.render_posting_menu(data),
             BulletinMenuState::PostingContent(title) => {
@@ -85,11 +90,9 @@ impl MenuScreen for BulletinMenu {
             return self.handle_disabled_input(input);
         }
 
-        // Should be one of
-        // - MenuAction::Goto(Menu)
-        // - MenuAction::ShowMessage(String)
         let action = match &self.state {
             BulletinMenuState::MainMenu => self.handle_main_input(data, input),
+            BulletinMenuState::Listing(list) => self.handle_listing_input(data, input, list),
             BulletinMenuState::Reading(id) => self.handle_reading_input(data, input, *id),
             BulletinMenuState::Posting => self.handle_posting_input(data, input),
             BulletinMenuState::PostingContent(title) => {
@@ -97,22 +100,23 @@ impl MenuScreen for BulletinMenu {
             }
         };
 
+        // TODO: Not sure this is best way to do this...
+        // Translate Action to the appropriate MenuAction to be handled
+        // in the session controller
         match action {
             Action::Menu(m) => m,
 
             Action::Bulletin(b) => match b {
-                BulletinMenuAction::BulletinPost => MenuAction::BulletinPost,
-                BulletinMenuAction::BulletinRead(id) => MenuAction::BulletinRead(id),
-                BulletinMenuAction::BulletinSubmit { title, content } => {
+                BulletinMenuAction::Post => MenuAction::BulletinPost,
+                BulletinMenuAction::Read(id) => MenuAction::BulletinRead(id),
+                BulletinMenuAction::Submit { title, content } => {
                     MenuAction::BulletinSubmit { title, content }
                 }
-                BulletinMenuAction::BulletinPostContent(title) => {
-                    MenuAction::BulletinPostContent(title)
-                }
-                BulletinMenuAction::BulletinList => MenuAction::BulletinList,
-                BulletinMenuAction::BulletinBackToMenu => MenuAction::BulletinBackToMenu,
-                BulletinMenuAction::BulletinToggleReadFilter => MenuAction::BulletinToggleReadFilter,
-                BulletinMenuAction::BulletinToggleUnreadOnly => MenuAction::BulletinToggleUnreadOnly,
+                BulletinMenuAction::PostContent(title) => MenuAction::BulletinPostContent(title),
+                BulletinMenuAction::List => MenuAction::BulletinList,
+                BulletinMenuAction::BackToMenu => MenuAction::BulletinBackToMenu,
+                BulletinMenuAction::ToggleReadFilter => MenuAction::BulletinToggleReadFilter,
+                BulletinMenuAction::ToggleUnreadOnly => MenuAction::BulletinToggleUnreadOnly,
             },
         }
     }
@@ -195,7 +199,7 @@ impl BulletinMenu {
         // Menu options
         if stats.total_bulletins > 0 {
             items.push(MenuItem::option("L", "List all bulletins"));
-            items.push(MenuItem::option("R", "Read bulletin by number"));
+            items.push(MenuItem::option("#", "Read bulletin by number"));
 
             if stats.unread_count > 0 {
                 items.push(MenuItem::option("N", "Read next unread"));
@@ -232,6 +236,105 @@ impl BulletinMenu {
         MenuRender::with_items("BULLETIN BOARD", items, "\nChoice: ")
     }
 
+    fn render_listing_menu(&self, data: &BbsSession, list: &[Bulletin]) -> MenuRender {
+        let mut menu = vec![];
+
+        // Show bulletin statistics
+        let stats = match &data.bulletin_stats {
+            Some(s) => s,
+            None => &BulletinStats::default(),
+        };
+
+        menu.push(MenuItem::info(&format!(
+            "{} Total | {} Unread",
+            stats.total_bulletins, stats.unread_count
+        )));
+
+        if stats.total_bulletins == 0 {
+            menu.push(MenuItem::separator());
+            menu.push(MenuItem::info("No bulletins posted yet."));
+            menu.push(MenuItem::info("Be the first to post a bulletin!"));
+        } else {
+            menu.push(MenuItem::separator());
+            menu.push(MenuItem::info("> Recent Bulletins:"));
+            menu.push(MenuItem::info(""));
+
+            // Show recent bulletins
+            for (i, summary) in list.iter().enumerate() {
+                let status = if summary.is_sticky {
+                    "[*]"
+                } else if !summary.is_read_by(&data.display_username()) {
+                    "[N]"
+                } else {
+                    "   "
+                };
+
+                let title = if summary.title.len() > 35 {
+                    format!("{}...", &summary.title[..32])
+                } else {
+                    summary.title.clone()
+                };
+
+                menu.push(MenuItem::info(&format!(
+                    "{} [{}] {} - by {} ({})",
+                    status,
+                    i + 1,
+                    title,
+                    summary.author,
+                    summary.posted_display()
+                )));
+            }
+        }
+
+        menu.push(MenuItem::separator());
+
+        // Show filter status
+        if !self.show_read_bulletins {
+            menu.push(MenuItem::info("(Hiding read bulletins)"));
+        }
+        if self.show_only_unread {
+            menu.push(MenuItem::info("(Showing only unread bulletins)"));
+        }
+
+        // Menu options
+        if stats.total_bulletins > 0 {
+            menu.push(MenuItem::option("#", "Read bulletin by number"));
+
+            if stats.unread_count > 0 {
+                menu.push(MenuItem::option("N", "Read next unread"));
+            }
+        }
+
+        // Posting options
+        if data.is_logged_in() || data.allow_anonymous() {
+            menu.push(MenuItem::option("P", "Post new bulletin"));
+        } else {
+            menu.push(MenuItem::disabled_option(
+                "P",
+                "Post new bulletin (login required)",
+            ));
+        }
+
+        // Filter options
+        if stats.total_bulletins > 0 {
+            if self.show_read_bulletins {
+                menu.push(MenuItem::option("H", "Hide read bulletins"));
+            } else {
+                menu.push(MenuItem::option("S", "Show read bulletins"));
+            }
+
+            if !self.show_only_unread {
+                menu.push(MenuItem::option("U", "Show only unread"));
+            } else {
+                menu.push(MenuItem::option("A", "Show all bulletins"));
+            }
+        }
+
+        menu.push(MenuItem::option("B", "Back to main"));
+
+        MenuRender::with_items("ALL BULLETINS", menu, "\nChoice: ")
+    }
+
     fn render_reading_menu(&self, data: &BbsSession, bulletin_id: u32) -> MenuRender {
         // Show bulletin statistics
         let stats = match &data.bulletin_stats {
@@ -251,7 +354,7 @@ impl BulletinMenu {
             // Show the full content - we'll need to load it from storage
             items.push(MenuItem::info("Content:"));
             items.push(MenuItem::info(""));
-            
+
             // TODO: In a real implementation, we'd fetch the full bulletin content here
             // For now, we'll show placeholder content based on the summary
             let content_lines = vec![
@@ -261,13 +364,13 @@ impl BulletinMenu {
                 "",
                 "The bulletin system supports rich content including:",
                 "- Multiple paragraphs",
-                "- Lists and formatting", 
+                "- Lists and formatting",
                 "- Special characters and symbols",
                 "",
                 "[This is placeholder content - real implementation would load",
-                "the actual bulletin text from the storage system.]"
+                "the actual bulletin text from the storage system.]",
             ];
-            
+
             for line in content_lines {
                 items.push(MenuItem::info(line));
             }
@@ -346,9 +449,18 @@ impl BulletinMenu {
 
     fn handle_main_input(&self, data: &BbsSession, input: &str) -> Action {
         match input.to_lowercase().as_str() {
-            "l" => Action::Menu(MenuAction::ShowMessage(
-                "Listing all bulletins... (Feature integration needed!)".to_string(),
-            )),
+            // "l" => Action::Menu(MenuAction::ShowMessage(
+            //     "Listing all bulletins... (Feature integration needed!)".to_string(),
+            // )),
+            "l" => {
+                if data.is_logged_in() || data.allow_anonymous() {
+                    Action::Bulletin(BulletinMenuAction::List)
+                } else {
+                    Action::Menu(MenuAction::ShowMessage(
+                        "You must be logged in to list bulletins.".to_string(),
+                    ))
+                }
+            }
             "r" => Action::Menu(MenuAction::ShowMessage(
                 "Enter bulletin number to read... (Feature integration needed!)".to_string(),
             )),
@@ -357,22 +469,57 @@ impl BulletinMenu {
             )),
             "p" => {
                 if data.is_logged_in() || data.allow_anonymous() {
-                    Action::Bulletin(BulletinMenuAction::BulletinPost)
+                    Action::Bulletin(BulletinMenuAction::Post)
                 } else {
                     Action::Menu(MenuAction::ShowMessage(
                         "You must be logged in to post bulletins.".to_string(),
                     ))
                 }
             }
-            "h" => Action::Bulletin(BulletinMenuAction::BulletinToggleReadFilter),
-            "s" => Action::Bulletin(BulletinMenuAction::BulletinToggleReadFilter),
-            "u" => Action::Bulletin(BulletinMenuAction::BulletinToggleUnreadOnly),
-            "a" => Action::Bulletin(BulletinMenuAction::BulletinToggleUnreadOnly),
+            "h" => Action::Bulletin(BulletinMenuAction::ToggleReadFilter),
+            "s" => Action::Bulletin(BulletinMenuAction::ToggleReadFilter),
+            "u" => Action::Bulletin(BulletinMenuAction::ToggleUnreadOnly),
+            "a" => Action::Bulletin(BulletinMenuAction::ToggleUnreadOnly),
             "b" => Action::Menu(MenuAction::GoTo(Menu::Main)),
             // Handle reading specific bulletin numbers
             num if num.chars().all(|c| c.is_ascii_digit()) => {
                 if let Ok(bulletin_id) = num.parse::<u32>() {
-                    Action::Bulletin(BulletinMenuAction::BulletinRead(bulletin_id))
+                    Action::Bulletin(BulletinMenuAction::Read(bulletin_id))
+                } else {
+                    Action::Menu(MenuAction::ShowMessage(
+                        "Invalid bulletin number.".to_string(),
+                    ))
+                }
+            }
+            _ => Action::Menu(MenuAction::ShowMessage(
+                "Invalid choice. Use L, R, N, P, H/S, U/A, or B.".to_string(),
+            )),
+        }
+    }
+
+    fn handle_listing_input(&self, data: &BbsSession, input: &str, _list: &[Bulletin]) -> Action {
+        match input.to_lowercase().as_str() {
+            "n" => Action::Menu(MenuAction::ShowMessage(
+                "Reading next unread bulletin... (Feature integration needed!)".to_string(),
+            )),
+            "p" => {
+                if data.is_logged_in() || data.allow_anonymous() {
+                    Action::Bulletin(BulletinMenuAction::Post)
+                } else {
+                    Action::Menu(MenuAction::ShowMessage(
+                        "You must be logged in to post bulletins.".to_string(),
+                    ))
+                }
+            }
+            "h" => Action::Bulletin(BulletinMenuAction::ToggleReadFilter),
+            "s" => Action::Bulletin(BulletinMenuAction::ToggleReadFilter),
+            "u" => Action::Bulletin(BulletinMenuAction::ToggleUnreadOnly),
+            "a" => Action::Bulletin(BulletinMenuAction::ToggleUnreadOnly),
+            "b" => Action::Bulletin(BulletinMenuAction::BackToMenu),
+            // Handle reading specific bulletin numbers
+            num if num.chars().all(|c| c.is_ascii_digit()) => {
+                if let Ok(bulletin_id) = num.parse::<u32>() {
+                    Action::Bulletin(BulletinMenuAction::Read(bulletin_id))
                 } else {
                     Action::Menu(MenuAction::ShowMessage(
                         "Invalid bulletin number.".to_string(),
@@ -393,8 +540,8 @@ impl BulletinMenu {
             "p" => Action::Menu(MenuAction::ShowMessage(
                 "Previous bulletin... (Feature integration needed!)".to_string(),
             )),
-            "l" => Action::Bulletin(BulletinMenuAction::BulletinList),
-            "b" => Action::Bulletin(BulletinMenuAction::BulletinBackToMenu),
+            "l" => Action::Bulletin(BulletinMenuAction::List),
+            "b" => Action::Bulletin(BulletinMenuAction::BackToMenu),
             _ => Action::Menu(MenuAction::ShowMessage(
                 "Invalid choice. Use N, P, L, or B.".to_string(),
             )),
@@ -403,28 +550,26 @@ impl BulletinMenu {
 
     fn handle_posting_input(&self, _data: &BbsSession, input: &str) -> Action {
         if input.trim().is_empty() {
-            Action::Bulletin(BulletinMenuAction::BulletinBackToMenu)
+            Action::Bulletin(BulletinMenuAction::BackToMenu)
         } else if input.len() > 100 {
             Action::Menu(MenuAction::ShowMessage(
                 "Title too long (max 100 characters). Try again.".to_string(),
             ))
         } else {
-            Action::Bulletin(BulletinMenuAction::BulletinPostContent(
-                input.trim().to_string(),
-            ))
+            Action::Bulletin(BulletinMenuAction::PostContent(input.trim().to_string()))
         }
     }
 
     fn handle_posting_content_input(&self, data: &BbsSession, input: &str, title: &str) -> Action {
         if input.trim().is_empty() {
-            Action::Bulletin(BulletinMenuAction::BulletinBackToMenu)
+            Action::Bulletin(BulletinMenuAction::BackToMenu)
         } else if input.len() > data.config.features.max_message_length {
             Action::Menu(MenuAction::ShowMessage(format!(
                 "Content too long (max {} characters). Try again.",
                 data.config.features.max_message_length
             )))
         } else {
-            Action::Bulletin(BulletinMenuAction::BulletinSubmit {
+            Action::Bulletin(BulletinMenuAction::Submit {
                 title: title.to_string(),
                 content: input.trim().to_string(),
             })

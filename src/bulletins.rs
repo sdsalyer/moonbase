@@ -102,35 +102,3 @@ impl BulletinRequest {
         Ok(())
     }
 }
-
-// // Bulletin statistics for display
-// #[derive(Debug, Clone, Default)]
-// pub struct BulletinStats {
-//     pub total_bulletins: usize,
-//     pub unread_count: usize,
-//     pub recent_bulletins: Vec<BulletinSummary>,
-// }
-//
-// // Summary of a bulletin for menu display
-// #[derive(Debug, Clone)]
-// pub struct BulletinSummary {
-//     pub id: u32,
-//     pub title: String,
-//     pub author: String,
-//     pub posted_display: String,
-//     pub is_sticky: bool,
-//     pub is_read: bool,
-// }
-//
-// impl From<(&Bulletin, bool)> for BulletinSummary {
-//     fn from((bulletin, is_read): (&Bulletin, bool)) -> Self {
-//         Self {
-//             id: bulletin.id,
-//             title: bulletin.title.clone(),
-//             author: bulletin.author.clone(),
-//             posted_display: bulletin.posted_display(),
-//             is_sticky: bulletin.is_sticky,
-//             is_read,
-//         }
-//     }
-// }
