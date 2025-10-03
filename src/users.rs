@@ -8,6 +8,7 @@ use std::hash::{Hash, Hasher};
 /// User account information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    // TODO: Id number
     pub username: String,
     pub email: Option<String>,
     pub password_hash: String,
