@@ -257,7 +257,8 @@ impl BbsSession {
             }
             MenuAction::BulletinList => {
                 let bulletins = self.get_all_bulletins()?;
-                self.menu_bulletin.state = crate::menu::menu_bulletin::BulletinMenuState::Listing(bulletins);
+                self.menu_bulletin.state =
+                    crate::menu::menu_bulletin::BulletinMenuState::Listing(bulletins);
                 Ok(true)
             }
             MenuAction::BulletinBackToMenu => {

@@ -81,7 +81,6 @@ impl MenuScreen for MainMenu {
             //         MenuAction::ShowMessage("File Library is currently disabled.".to_string())
             //     }
             // },
-
             "l" | "login" => {
                 if !data.is_logged_in() && data.allow_anonymous() {
                     MenuAction::Login

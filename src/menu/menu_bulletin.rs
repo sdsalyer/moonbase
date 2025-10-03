@@ -366,7 +366,7 @@ impl BulletinMenu {
         // ];
 
         let width = &data.config.ui.menu_width;
-        for line in bulletin.get_content_lines(*width-4) {
+        for line in bulletin.get_content_lines(*width - 4) {
             items.push(MenuItem::info(&line));
         }
 

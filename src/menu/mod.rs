@@ -96,5 +96,3 @@ pub trait MenuScreen {
     //     "Menu"
     // }
 }
-
-

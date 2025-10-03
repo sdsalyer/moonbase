@@ -1,6 +1,6 @@
 use crossterm::{
-    style::{Color, Print, ResetColor, SetForegroundColor},
     QueueableCommand,
+    style::{Color, Print, ResetColor, SetForegroundColor},
 };
 use std::io::Write;
 
