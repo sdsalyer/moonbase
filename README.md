@@ -9,12 +9,12 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 - Create something fun and nostalgic
 
 ## Next Steps
-1. **Add comprehensive unit tests** for menu logic and configuration
-2. **Build bulletin board functionality** with persistent messages
-3. **Add user-to-user messaging system**
-4. **Implement file library** with upload/download
-5. **Doors/Mods** plugin support
-6. **Add SSH support** alongside Telnet
+1. **Add user-to-user messaging system**
+2. **Implement file library** with upload/download
+3. **Add online user tracking and directory**
+4. **Doors/Mods** plugin support
+5. **Add SSH support** alongside Telnet
+6. **System administration features**
 
 ## Current Status
 
@@ -24,7 +24,7 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 - [x] Multi-threaded connection management
 - [x] Configurable BBS system via `bbs.conf`
 - [x] Clean modular architecture
-- [/] Unit testing framework
+- [x] Unit testing framework (8 tests passing)
 
 ### User Interface System
 - [x] Configurable box-drawing system (ASCII, single, double, rounded styles)
@@ -34,7 +34,7 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 
 ### Menu System
 - [x] Main menu with user status display
-- [x] Bulletin board menu (placeholder)
+- [x] Bulletin board menu (FULLY IMPLEMENTED)
 - [x] User directory menu (placeholder) 
 - [x] Private messages menu (placeholder)
 - [x] File library menu (placeholder)
@@ -61,8 +61,19 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 - [ ] User profiles and preferences
 - [x] Password authentication
 
+### Bulletin System
+- [x] Create and post new bulletins
+- [x] Read existing bulletins with content display
+- [x] Mark bulletins as read (per-user tracking)
+- [x] Bulletin statistics (total, unread count)
+- [x] Recent bulletins display with status indicators
+- [x] Sticky bulletin support
+- [x] Persistent storage (JSON-based)
+- [x] Anonymous and registered user support
+- [x] Full menu navigation and state management
+
 ## BBS Core Features
-- [ ] Bulletin posting and reading
+- [x] Bulletin posting and reading
 - [ ] User-to-user messaging
 - [ ] File upload/download system
 - [ ] Online user tracking
@@ -80,18 +91,20 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 ## Current Module Structure
 ```
 src/
-├── main.rs              # Server startup and connection handling
-├── config.rs            # Configuration management 
-├── errors.rs            # Custom error types
-├── box_renderer.rs      # UI rendering system
-├── session.rs           # Session management and I/O
-└── menu/                # Menu system
-    ├── mod.rs           # Menu traits and common types
-    ├── main_menu.rs     # Main menu implementation
-    ├── bulletin_menu.rs # Bulletin board menu
-    ├── user_menu.rs     # User directory menu
-    ├── message_menu.rs  # Private messages menu
-    └── file_menu.rs     # File library menu
+├── main.rs                  # Server startup and connection handling
+├── config.rs                # Configuration management 
+├── errors.rs                # Custom error types
+├── box_renderer.rs          # UI rendering system
+├── session.rs               # Session management and I/O
+├── users.rs                 # User data types and validation
+├── user_repository.rs       # User storage and authentication
+├── bulletins.rs             # Bulletin data types and validation
+├── bulletin_repository.rs   # Bulletin storage and statistics
+└── menu/                    # Menu system
+    ├── mod.rs               # Menu traits and common types
+    ├── menu_main.rs         # Main menu implementation
+    ├── menu_bulletin.rs     # Bulletin board menu (IMPLEMENTED)
+    └── menu_user.rs         # User directory menu
 ```
 
 ## Design Principles
@@ -100,6 +113,67 @@ src/
 - **Configurable** - Extensive customization without code changes
 - **Testable** - Clean interfaces for unit testing
 - **Extensible** - Easy to add new menus and features
+
+## Future considerations
+
+### Phase 1: Stay with Enhanced MVC (Current)
+
+Small improvements:
+
+- Add event logging for observability
+- Extract more traits for testability
+- Better error handling with context
+
+### Phase 2: Add Event System
+
+When adding notifications/real-time features
+
+```rust
+// Add this layer on top of current MVC
+struct EventBus {
+    handlers: HashMap<TypeId, Vec<Box<dyn EventHandler>>>,
+}
+
+// Current code stays the same, just publishes events
+session.handle_bulletin_submit(title, content)?;
+event_bus.publish(BulletinPosted { id, author })?;
+```
+
+### Phase 3: Consider Hexagonal
+
+When you want to add SSH, HTTP API, or WebSocket support, hexagonal
+architecture becomes valuable.
+
+- Session layer knows about TCP streams
+- Storage layer tied to JSON files
+- Terminal rendering mixed with business logic
+
+*How It Would Look:*
+
+```rust
+// Core domain - no external dependencies
+mod domain {
+    pub struct BulletinService {
+        repo: Box<dyn BulletinRepository>,
+    }
+
+    impl BulletinService {
+        pub fn post_bulletin(&mut self, request: BulletinRequest) -> Result<BulletinId> {
+            // Pure business logic
+        }
+    }
+}
+
+// Adapters - handle external concerns
+mod adapters {
+    struct TelnetAdapter;
+    struct SSHAdapter;
+    struct WebAdapter; // Future HTTP interface
+
+    struct JsonStorageAdapter;
+    struct DatabaseAdapter; // Future SQL storage
+}
+```
 
 # Dependencies
 - `crossterm` - Terminal manipulation and input handling

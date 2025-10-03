@@ -1,4 +1,5 @@
 use crate::errors::{BbsError, BbsResult};
+use crate::menu::UserStats;
 use crate::users::{RegistrationRequest, User};
 
 use std::collections::HashMap;
@@ -10,8 +11,8 @@ pub trait UserStorage {
     fn load_user(&self, username: &str) -> BbsResult<Option<User>>;
     fn save_user(&mut self, user: &User) -> BbsResult<()>;
     fn user_exists(&self, username: &str) -> BbsResult<bool>;
-    // fn list_users(&self) -> BbsResult<Vec<String>>;
-    // fn get_user_count(&self) -> BbsResult<usize>;
+    fn list_users(&self) -> BbsResult<Vec<String>>;
+    fn get_user_count(&self) -> BbsResult<usize>;
 }
 
 /// JSON file-based user storage implementation
@@ -130,21 +131,27 @@ impl JsonUserStorage {
         Ok(None) // User not found or password incorrect
     }
 
-    // Get statistics about users
-    // pub fn get_stats(&self) -> UserStats {
-    //     let total_users = self.users_cache.len();
-    //     let active_users = self.users_cache.values().filter(|u| u.is_active()).count();
-    //
-    //     UserStats {
-    //         total_users,
-    //         active_users,
-    //         inactive_users: total_users - active_users,
-    //     }
-    // }
+    /// Get statistics about users
+    pub fn get_stats(&self) -> BbsResult<UserStats> {
+        let total_users = self.get_user_count()?;
+        let online_users = self.users_cache.values().filter(|u| u.is_active()).count();
+        let all_users = self.list_users()?;
+
+        // TODO: get recent logins
+        let recent_logins = vec![];
+
+        Ok(UserStats {
+            total_users,
+            online_users,
+            all_users,
+            recent_logins,
+        })
+    }
 }
 
 impl UserStorage for JsonUserStorage {
     fn load_user(&self, username: &str) -> BbsResult<Option<User>> {
+        // TODO: why clone?
         Ok(self.users_cache.get(username).cloned())
     }
 
@@ -162,18 +169,18 @@ impl UserStorage for JsonUserStorage {
         Ok(self.users_cache.contains_key(username))
     }
 
-    // fn list_users(&self) -> BbsResult<Vec<String>> {
-    //     let mut usernames: Vec<String> = self.users_cache.keys().cloned().collect();
-    //     usernames.sort();
-    //     Ok(usernames)
-    // }
-    //
-    // fn get_user_count(&self) -> BbsResult<usize> {
-    //     Ok(self.users_cache.len())
-    // }
+    fn list_users(&self) -> BbsResult<Vec<String>> {
+        let mut usernames: Vec<String> = self.users_cache.keys().cloned().collect();
+        usernames.sort();
+        Ok(usernames)
+    }
+
+    fn get_user_count(&self) -> BbsResult<usize> {
+        Ok(self.users_cache.len())
+    }
 }
 
-/// User statistics
+// User statistics
 // #[derive(Debug)]
 // pub struct UserStats {
 //     pub total_users: usize,
@@ -181,19 +188,18 @@ impl UserStorage for JsonUserStorage {
 //     pub inactive_users: usize,
 // }
 //
-/// Future database storage implementation would look like:
-/// ```rust
-/// pub struct DatabaseUserStorage {
-///     connection: Database,
-/// }
-///
-/// impl UserStorage for DatabaseUserStorage {
-///     fn load_user(&self, username: &str) -> BbsResult<Option<User>> {
-///         // SELECT * FROM users WHERE username = ?
-///     }
-///     // ... other methods
-/// }
-/// ```
+// Future database storage implementation would look like:
+// ```rust
+// pub struct DatabaseUserStorage {
+//     connection: Database,
+// }
+//
+// impl UserStorage for DatabaseUserStorage {
+//     fn load_user(&self, username: &str) -> BbsResult<Option<User>> {
+//         // SELECT * FROM users WHERE username = ?
+//     }
+//     // ... other methods
+// }
 
 #[cfg(test)]
 mod tests {

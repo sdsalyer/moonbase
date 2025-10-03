@@ -1,6 +1,6 @@
 use crossterm::{
-    style::{Color, Print, ResetColor, SetForegroundColor},
     QueueableCommand,
+    style::{Color, Print, ResetColor, SetForegroundColor},
 };
 use std::io::Write;
 
@@ -156,7 +156,7 @@ impl BoxRenderer {
         writer.queue(Print(self.style.to_glyphs().top_right))?;
         writer.queue(Print('\n'))?;
 
-        if let Some(_) = box_color {
+        if box_color.is_some() {
             writer.queue(ResetColor)?;
         }
 
@@ -183,7 +183,7 @@ impl BoxRenderer {
 
         writer.queue(Print(self.style.to_glyphs().vertical))?;
 
-        if let Some(_) = box_color {
+        if box_color.is_some() {
             writer.queue(ResetColor)?;
         }
 
@@ -212,7 +212,7 @@ impl BoxRenderer {
         writer.queue(Print(self.style.to_glyphs().vertical))?;
         writer.queue(Print('\n'))?;
 
-        if let Some(_) = box_color {
+        if box_color.is_some() {
             writer.queue(ResetColor)?;
         }
 
@@ -249,7 +249,7 @@ impl BoxRenderer {
 
         writer.queue(Print('\n'))?;
 
-        if let Some(_) = box_color {
+        if box_color.is_some() {
             writer.queue(ResetColor)?;
         }
 
@@ -282,7 +282,7 @@ impl BoxRenderer {
         writer.queue(Print(self.style.to_glyphs().bottom_right))?;
         writer.queue(Print('\n'))?;
 
-        if let Some(_) = box_color {
+        if box_color.is_some() {
             writer.queue(ResetColor)?;
         }
 
@@ -381,7 +381,7 @@ impl BoxRenderer {
             for word in words {
                 if current_line.is_empty() {
                     current_line = word.to_string();
-                } else if current_line.len() + word.len() + 1 <= max_content_width {
+                } else if current_line.len() + word.len() < max_content_width {
                     current_line.push(' ');
                     current_line.push_str(word);
                 } else {
@@ -471,7 +471,7 @@ impl BoxStyle {
         }
     }
 
-    fn to_glyphs(&self) -> BoxGlyphs {
+    fn to_glyphs(self) -> BoxGlyphs {
         match self {
             // BoxStyleName::Double => BoxStyle::double(),
             // BoxStyleName::Single => BoxStyle::single(),

@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 /// Custom configuration errors
 #[derive(Debug)]
 pub enum ConfigError {

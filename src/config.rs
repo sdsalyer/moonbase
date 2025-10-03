@@ -302,6 +302,8 @@ bulletins_enabled = {}
 
 [ui]
 # User interface configuration
+# Box styles: "ascii" (telnet-safe), "single", "double", "rounded"
+# Use "ascii" for best telnet compatibility
 box_style = "{}"
 menu_width = {}
 use_colors = {}
@@ -339,4 +341,3 @@ welcome_pause_ms = {}
         )
     }
 }
-

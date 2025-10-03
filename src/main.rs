@@ -1,22 +1,24 @@
 mod box_renderer;
+mod bulletin_repository;
+mod bulletins;
 mod config;
 mod errors;
 mod menu;
 mod session;
-mod users;
 mod user_repository;
+mod users;
 
 use box_renderer::BoxRenderer;
+use bulletin_repository::JsonBulletinStorage;
 use config::BbsConfig;
 use errors::BbsResult;
 use session::BbsSession;
+use user_repository::JsonUserStorage;
 
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
-
-use crate::user_repository::JsonUserStorage;
 
 /// Moonbase entry point
 fn main() -> BbsResult<()> {
@@ -35,7 +37,7 @@ fn main() -> BbsResult<()> {
     // Print startup information
     if let Err(e) = print_startup_banner(&config) {
         eprintln!("Runtime error: {}", e);
-        return Err(errors::BbsError::from(e));
+        return Err(e);
     }
 
     // Wrap config in Arc for sharing between threads
@@ -44,11 +46,23 @@ fn main() -> BbsResult<()> {
     // Initialize shared user storage
     let user_storage = match JsonUserStorage::new("data") {
         Ok(storage) => {
-            println!("✓ User storage initialized");
+            println!("+ User storage initialized");
             Arc::new(Mutex::new(storage))
         }
         Err(e) => {
-            eprintln!("❌ Failed to initialize user storage: {}", e);
+            eprintln!("x Failed to initialize user storage: {}", e);
+            return Err(e);
+        }
+    };
+
+    // Initialize shared bulletin storage
+    let bulletin_storage = match JsonBulletinStorage::new("data") {
+        Ok(storage) => {
+            println!("+ Bulletin storage initialized");
+            Arc::new(Mutex::new(storage))
+        }
+        Err(e) => {
+            eprintln!("x Failed to initialize bulletin storage: {}", e);
             return Err(e);
         }
     };
@@ -85,9 +99,6 @@ fn main() -> BbsResult<()> {
                 // Clone config for this thread
                 let config = Arc::clone(&config);
 
-                // Clone user storage mutex for this thread
-                let user_storage = Arc::clone(&user_storage);
-
                 // Check connection limit
                 if connection_count > config.server.max_connections {
                     eprintln!("!  Connection limit reached, rejecting connection");
@@ -102,6 +113,10 @@ fn main() -> BbsResult<()> {
                     .unwrap_or_else(|_| "unknown".parse().unwrap());
                 println!("> New connection #{} from: {}", connection_count, peer_addr);
 
+                // Clone storage mutexes for this thread
+                let user_storage = Arc::clone(&user_storage);
+                let bulletin_storage = Arc::clone(&bulletin_storage);
+
                 // Spawn thread to handle connection
                 thread::spawn(move || {
                     // Set connection timeout
@@ -112,7 +127,7 @@ fn main() -> BbsResult<()> {
                     }
 
                     // Handle the client session
-                    match handle_client(stream, config, user_storage) {
+                    match handle_client(stream, config, user_storage, bulletin_storage) {
                         Ok(()) => println!("> Client {} disconnected normally", peer_addr),
                         Err(e) => eprintln!("! Error handling client {}: {}", peer_addr, e),
                     }
@@ -129,8 +144,13 @@ fn main() -> BbsResult<()> {
 }
 
 /// Handle client BBS Session
-fn handle_client(stream: TcpStream, config: Arc<BbsConfig>, user_storage: Arc<Mutex<JsonUserStorage>>) -> BbsResult<()> {
-    let mut session = BbsSession::new(config, user_storage);
+fn handle_client(
+    stream: TcpStream,
+    config: Arc<BbsConfig>,
+    user_storage: Arc<Mutex<JsonUserStorage>>,
+    bulletin_storage: Arc<Mutex<JsonBulletinStorage>>,
+) -> BbsResult<()> {
+    let mut session = BbsSession::new(config, user_storage, bulletin_storage);
     session.run(stream)
 }
 
