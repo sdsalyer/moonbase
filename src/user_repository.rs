@@ -13,6 +13,13 @@ pub trait UserStorage {
     fn user_exists(&self, username: &str) -> BbsResult<bool>;
     fn list_users(&self) -> BbsResult<Vec<String>>;
     fn get_user_count(&self) -> BbsResult<usize>;
+    fn register_user(
+        &mut self,
+        request: &RegistrationRequest,
+        config: &crate::config::BbsConfig,
+    ) -> BbsResult<User>;
+    fn authenticate_user(&mut self, username: &str, password: &str) -> BbsResult<Option<User>>;
+    fn get_stats(&self) -> BbsResult<UserStats>;
 }
 
 /// JSON file-based user storage implementation
@@ -177,6 +184,22 @@ impl UserStorage for JsonUserStorage {
 
     fn get_user_count(&self) -> BbsResult<usize> {
         Ok(self.users_cache.len())
+    }
+
+    fn register_user(
+        &mut self,
+        request: &RegistrationRequest,
+        config: &crate::config::BbsConfig,
+    ) -> BbsResult<User> {
+        self.register_user(request, config)
+    }
+
+    fn authenticate_user(&mut self, username: &str, password: &str) -> BbsResult<Option<User>> {
+        self.authenticate_user(username, password)
+    }
+
+    fn get_stats(&self) -> BbsResult<UserStats> {
+        self.get_stats()
     }
 }
 

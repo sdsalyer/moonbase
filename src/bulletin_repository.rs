@@ -46,7 +46,8 @@ pub trait BulletinStorage {
         config: &crate::config::BbsConfig,
     ) -> BbsResult<u32>;
     fn mark_read(&mut self, bulletin_id: u32, username: &str) -> BbsResult<()>;
-    fn list_bulletins(&self) -> BbsResult<Vec<Bulletin>>;
+    // fn list_bulletins(&self) -> BbsResult<Vec<Bulletin>>;
+    fn get_stats(&self, current_user: Option<&str>) -> BulletinStats;
     // fn get_recent_bulletins(&self, limit: usize) -> BbsResult<Vec<Bulletin>>;
     // fn get_unread_bulletins(&self, username: &str) -> BbsResult<Vec<Bulletin>>;
     // fn get_bulletin_count(&self) -> BbsResult<usize>;
@@ -246,20 +247,20 @@ impl BulletinStorage for JsonBulletinStorage {
         }
     }
 
-    /// List all bulletins, sorted by post date (newest first)
-    fn list_bulletins(&self) -> BbsResult<Vec<Bulletin>> {
-        let mut bulletins: Vec<Bulletin> = self.bulletins_cache.values().cloned().collect();
-
-        // Sort: sticky posts first, then by posted_at (newest first)
-        bulletins.sort_by(|a, b| match (a.is_sticky, b.is_sticky) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => b.posted_at.cmp(&a.posted_at),
-        });
-
-        Ok(bulletins)
-    }
-
+    // List all bulletins, sorted by post date (newest first)
+    // fn list_bulletins(&self) -> BbsResult<Vec<Bulletin>> {
+    //     let mut bulletins: Vec<Bulletin> = self.bulletins_cache.values().cloned().collect();
+    //
+    //     // Sort: sticky posts first, then by posted_at (newest first)
+    //     bulletins.sort_by(|a, b| match (a.is_sticky, b.is_sticky) {
+    //         (true, false) => std::cmp::Ordering::Less,
+    //         (false, true) => std::cmp::Ordering::Greater,
+    //         _ => b.posted_at.cmp(&a.posted_at),
+    //     });
+    //
+    //     Ok(bulletins)
+    // }
+    //
     /*
     /// Get recent bulletins (limited count)
     fn get_recent_bulletins(&self, limit: usize) -> BbsResult<Vec<Bulletin>> {
@@ -305,6 +306,10 @@ impl BulletinStorage for JsonBulletinStorage {
         }
     }
     */
+
+    fn get_stats(&self, current_user: Option<&str>) -> BulletinStats {
+        self.get_stats(current_user)
+    }
 }
 
 #[cfg(test)]

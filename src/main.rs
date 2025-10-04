@@ -4,6 +4,7 @@ mod bulletins;
 mod config;
 mod errors;
 mod menu;
+mod services;
 mod session;
 mod user_repository;
 mod users;
@@ -12,6 +13,7 @@ use box_renderer::BoxRenderer;
 use bulletin_repository::JsonBulletinStorage;
 use config::BbsConfig;
 use errors::BbsResult;
+use services::CoreServices;
 use session::BbsSession;
 use user_repository::JsonUserStorage;
 
@@ -67,6 +69,13 @@ fn main() -> BbsResult<()> {
         }
     };
 
+    // Create services
+    let services = Arc::new(CoreServices::new(
+        user_storage.clone() as Arc<Mutex<dyn crate::user_repository::UserStorage + Send>>,
+        bulletin_storage.clone()
+            as Arc<Mutex<dyn crate::bulletin_repository::BulletinStorage + Send>>,
+    ));
+
     // Start the server
     let bind_addr = format!(
         "{}:{}",
@@ -113,9 +122,8 @@ fn main() -> BbsResult<()> {
                     .unwrap_or_else(|_| "unknown".parse().unwrap());
                 println!("> New connection #{} from: {}", connection_count, peer_addr);
 
-                // Clone storage mutexes for this thread
-                let user_storage = Arc::clone(&user_storage);
-                let bulletin_storage = Arc::clone(&bulletin_storage);
+                // Clone services for this thread
+                let services = Arc::clone(&services);
 
                 // Spawn thread to handle connection
                 thread::spawn(move || {
@@ -127,7 +135,7 @@ fn main() -> BbsResult<()> {
                     }
 
                     // Handle the client session
-                    match handle_client(stream, config, user_storage, bulletin_storage) {
+                    match handle_client(stream, config, services) {
                         Ok(()) => println!("> Client {} disconnected normally", peer_addr),
                         Err(e) => eprintln!("! Error handling client {}: {}", peer_addr, e),
                     }
@@ -147,10 +155,9 @@ fn main() -> BbsResult<()> {
 fn handle_client(
     stream: TcpStream,
     config: Arc<BbsConfig>,
-    user_storage: Arc<Mutex<JsonUserStorage>>,
-    bulletin_storage: Arc<Mutex<JsonBulletinStorage>>,
+    services: Arc<CoreServices>,
 ) -> BbsResult<()> {
-    let mut session = BbsSession::new(config, user_storage, bulletin_storage);
+    let mut session = BbsSession::new(config, services);
     session.run(stream)
 }
 

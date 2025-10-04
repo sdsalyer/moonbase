@@ -1,10 +1,10 @@
 use crate::box_renderer::{BoxRenderer, BoxStyle};
-use crate::bulletin_repository::{BulletinStats, BulletinStorage, JsonBulletinStorage};
-use crate::bulletins::Bulletin;
+use crate::bulletin_repository::BulletinStats;
 use crate::config::BbsConfig;
 use crate::errors::{BbsError, BbsResult};
 use crate::menu::{Menu, MenuAction, MenuRender, MenuScreen, RecentLogin, UserStats};
-use crate::user_repository::JsonUserStorage;
+
+use crate::bulletins::Bulletin;
 use crate::users::{RegistrationRequest, User};
 
 use crossterm::{
@@ -15,7 +15,7 @@ use crossterm::{
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 pub struct BbsSession {
@@ -26,8 +26,7 @@ pub struct BbsSession {
     pub bulletin_stats: Option<BulletinStats>,
 
     // Session resources
-    user_storage: Arc<Mutex<JsonUserStorage>>,
-    bulletin_storage: Arc<Mutex<JsonBulletinStorage>>,
+    services: Arc<crate::services::CoreServices>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
 
@@ -40,21 +39,18 @@ pub struct BbsSession {
 }
 
 impl BbsSession {
-    pub fn new(
-        config: Arc<BbsConfig>,
-        user_storage: Arc<Mutex<JsonUserStorage>>,
-        bulletin_storage: Arc<Mutex<JsonBulletinStorage>>,
-    ) -> Self {
+    pub fn new(config: Arc<BbsConfig>, services: Arc<crate::services::CoreServices>) -> Self {
         let box_renderer = BoxRenderer::new(BoxStyle::Ascii, config.ui.use_colors);
 
         Self {
             config,
             user: None,
             menu_current: Menu::Main,
-            user_storage,
-            bulletin_storage,
             user_stats: None,
             bulletin_stats: None,
+
+            // Session resources
+            services,
             box_renderer,
             login_attempts: 0,
             menu_main: crate::menu::menu_main::MainMenu::new(),
@@ -125,12 +121,7 @@ impl BbsSession {
 
     /// Calculate current user statistics
     fn calculate_user_stats(&mut self) -> BbsResult<()> {
-        let storage = self
-            .user_storage
-            .lock()
-            .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-
-        let stats = storage.get_stats()?;
+        let stats = self.services.users.get_stats()?;
         let total_users = stats.total_users;
         let all_users = stats.all_users;
         let online_users = stats.online_users;
@@ -415,15 +406,7 @@ Location: {}
         }
 
         // Authenticate user
-        let registration_result = {
-            // this scope allows the mutex guard to be dropped
-            // so we can reference self later
-            let mut storage = self
-                .user_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-            storage.authenticate_user(&username, &password)
-        };
+        let registration_result = self.services.users.authenticate(&username, &password);
 
         match registration_result? {
             Some(user) => {
@@ -503,15 +486,7 @@ Location: {}
         let request = RegistrationRequest::new(username.clone(), email, password);
 
         // Attempt registration
-        let registration_result = {
-            // this scope allows the mutex guard to be dropped
-            // so we can reference self later
-            let mut storage = self
-                .user_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-            storage.register_user(&request, &self.config)
-        };
+        let registration_result = self.services.users.register(request, &self.config);
 
         match registration_result {
             Ok(user) => {
@@ -597,12 +572,7 @@ Location: {}
             let password = self.get_input(stream, "Password: ")?;
 
             // Try to authenticate
-            let mut storage = self
-                .user_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-
-            match storage.authenticate_user(&username, &password)? {
+            match self.services.users.authenticate(&username, &password)? {
                 Some(user) => {
                     self.user = Some(user.clone());
                     stream.queue(SetForegroundColor(Color::Green))?;
@@ -695,27 +665,18 @@ Location: {}
     /// Handle bulletin reading
     fn handle_bulletin_read(&mut self, stream: &mut TcpStream, id: u32) -> BbsResult<()> {
         // Load bulletin from storage
-        let bulletin = {
-            let storage = self
-                .bulletin_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-            storage.load_bulletin(id)?
-        };
+        let bulletin = self.services.bulletins.get_bulletin(id)?;
 
         match bulletin {
             Some(bulletin) => {
                 // Mark as read for logged-in users
                 if let Some(user) = &self.user {
-                    let mut storage = self.bulletin_storage.lock().map_err(|_| {
-                        BbsError::Configuration("Storage lock poisoned".to_string())
-                    })?;
-                    storage.mark_read(id, &user.username)?;
+                    self.services.bulletins.mark_read(id, &user.username)?;
                 }
 
                 // Set menu to reading state
                 self.menu_bulletin.state =
-                    crate::menu::menu_bulletin::BulletinMenuState::Reading(bulletin);
+                    crate::menu::menu_bulletin::BulletinMenuState::Reading(bulletin.clone());
 
                 // Store bulletin content for display
                 // Note: In a real implementation, you might want to store this in the session
@@ -749,13 +710,7 @@ Location: {}
         let request = crate::bulletins::BulletinRequest::new(title.clone(), content, author);
 
         // Post bulletin
-        let result = {
-            let mut storage = self
-                .bulletin_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-            storage.post_bulletin(&request, &self.config)
-        };
+        let result = self.services.bulletins.post_bulletin(request, &self.config);
 
         match result {
             Ok(bulletin_id) => {
@@ -790,13 +745,7 @@ Location: {}
     fn refresh_bulletin_stats(&mut self) -> BbsResult<()> {
         let current_user = self.user.as_ref().map(|u| u.username.as_str());
 
-        let stats = {
-            let storage = self
-                .bulletin_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-            storage.get_stats(current_user)
-        };
+        let stats = self.services.bulletins.get_stats(current_user)?;
 
         self.bulletin_stats = Some(stats);
         Ok(())
@@ -804,15 +753,9 @@ Location: {}
 
     /// Refresh bulletin statistics
     fn get_all_bulletins(&mut self) -> BbsResult<Vec<Bulletin>> {
-        let bulletins = {
-            let storage = self
-                .bulletin_storage
-                .lock()
-                .map_err(|_| BbsError::Configuration("Storage lock poisoned".to_string()))?;
-            storage.list_bulletins()?
-        };
-
-        Ok(bulletins)
+        // This method is not currently used, but keeping for potential future use
+        // Would need to be implemented if needed
+        todo!("get_all_bulletins not implemented for service layer")
     }
 
     // Show feature disabled message
