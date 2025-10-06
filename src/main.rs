@@ -20,6 +20,7 @@ use user_repository::JsonUserStorage;
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::thread;
 
 /// Moonbase entry point
@@ -98,21 +99,25 @@ fn main() -> BbsResult<()> {
 
     println!("\nPress Ctrl+C to stop the server\n");
 
-    // Accept connections
-    let mut connection_count = 0;
+    // Accept connections with proper connection tracking
+    let connection_count = Arc::new(AtomicU32::new(0));
+    let mut connection_id = 0u32;
+    
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                connection_count += 1;
+                connection_id += 1;
+                let current_connections = connection_count.fetch_add(1, Ordering::Relaxed) + 1;
 
                 // Clone config for this thread
                 let config = Arc::clone(&config);
 
                 // Check connection limit
-                if connection_count > config.server.max_connections {
-                    eprintln!("!  Connection limit reached, rejecting connection");
+                if current_connections as usize > config.server.max_connections {
+                    eprintln!("!  Connection limit reached ({}/{}), rejecting connection", 
+                             current_connections, config.server.max_connections);
                     let _ = show_rejection(stream, config);
-                    connection_count -= 1;
+                    connection_count.fetch_sub(1, Ordering::Relaxed);
                     continue;
                 }
 
@@ -120,10 +125,12 @@ fn main() -> BbsResult<()> {
                 let peer_addr = stream
                     .peer_addr()
                     .unwrap_or_else(|_| "unknown".parse().unwrap());
-                println!("> New connection #{} from: {}", connection_count, peer_addr);
+                println!("> New connection #{} from: {} ({}/{})", 
+                        connection_id, peer_addr, current_connections, config.server.max_connections);
 
-                // Clone services for this thread
+                // Clone services and connection counter for this thread
                 let services = Arc::clone(&services);
+                let conn_counter = Arc::clone(&connection_count);
 
                 // Spawn thread to handle connection
                 thread::spawn(move || {
@@ -136,8 +143,16 @@ fn main() -> BbsResult<()> {
 
                     // Handle the client session
                     match handle_client(stream, config, services) {
-                        Ok(()) => println!("> Client {} disconnected normally", peer_addr),
-                        Err(e) => eprintln!("! Error handling client {}: {}", peer_addr, e),
+                        Ok(()) => {
+                            let remaining = conn_counter.fetch_sub(1, Ordering::Relaxed) - 1;
+                            println!("> Client {} disconnected normally ({} connections remaining)", 
+                                   peer_addr, remaining);
+                        },
+                        Err(e) => {
+                            let remaining = conn_counter.fetch_sub(1, Ordering::Relaxed) - 1;
+                            eprintln!("! Error handling client {}: {} ({} connections remaining)", 
+                                    peer_addr, e, remaining);
+                        }
                     }
                 });
             }
