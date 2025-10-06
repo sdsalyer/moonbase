@@ -3,6 +3,14 @@ name = "moonbase"
 version = "0.1.1"
 edition = "2024"
 
+[[bin]]
+name = "moonbase"
+path = "src/main.rs"
+
+[lib]
+name = "moonbase"
+path = "src/lib.rs"
+
 [dependencies]
 crossterm = "0.29.0"
 jiff = { version = "0.2.15", features = ["serde"] }
