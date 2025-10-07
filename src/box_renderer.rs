@@ -445,6 +445,14 @@ impl MenuItem {
     pub fn info(text: &str) -> Self {
         MenuItem::Info(text.to_string())
     }
+
+    pub fn header(text: &str) -> Self {
+        MenuItem::Info(format!("=== {} ===", text))
+    }
+
+    pub fn blank() -> Self {
+        MenuItem::Info("".to_string())
+    }
 }
 
 // TODO: Support for Non-ASCII characters

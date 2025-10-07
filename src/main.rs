@@ -4,6 +4,8 @@ mod bulletins;
 mod config;
 mod errors;
 mod menu;
+mod message_repository;
+mod messages;
 mod services;
 mod session;
 mod user_repository;
@@ -13,6 +15,7 @@ use box_renderer::BoxRenderer;
 use bulletin_repository::JsonBulletinStorage;
 use config::BbsConfig;
 use errors::BbsResult;
+use message_repository::JsonMessageStorage;
 use services::CoreServices;
 use session::BbsSession;
 use user_repository::JsonUserStorage;
@@ -70,11 +73,25 @@ fn main() -> BbsResult<()> {
         }
     };
 
+    // Initialize shared message storage
+    let message_storage = match JsonMessageStorage::new("data") {
+        Ok(storage) => {
+            println!("+ Message storage initialized");
+            Arc::new(Mutex::new(storage))
+        }
+        Err(e) => {
+            eprintln!("x Failed to initialize message storage: {}", e);
+            return Err(e);
+        }
+    };
+
     // Create services
     let services = Arc::new(CoreServices::new(
         user_storage.clone() as Arc<Mutex<dyn crate::user_repository::UserStorage + Send>>,
         bulletin_storage.clone()
             as Arc<Mutex<dyn crate::bulletin_repository::BulletinStorage + Send>>,
+        message_storage.clone()
+            as Arc<Mutex<dyn crate::message_repository::MessageStorage + Send>>,
     ));
 
     // Start the server
