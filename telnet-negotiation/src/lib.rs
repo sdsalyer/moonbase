@@ -18,22 +18,28 @@
 //! - `stream`: TelnetStream wrapper for transparent integration
 //! - `options`: Individual option implementations (Echo, Terminal Type, etc.)
 //!
-//! ## Phase 1: Minimal Structure
+//! ## Phase 2: Protocol Fundamentals
 //!
-//! This initial version provides only the module structure with no functionality.
-//! Each phase will incrementally add features while maintaining backward compatibility.
+//! This version implements the core Telnet protocol constants and types from RFC 854.
+//! Each phase incrementally adds features while maintaining backward compatibility.
+//!
+//! ### Available Features:
+//! - Complete Telnet command set (IAC, WILL, WONT, DO, DONT, etc.)
+//! - Standard Telnet options (Echo, Terminal Type, NAWS, etc.)
+//! - MUSH/MUD protocol extensions (MCCP, MXP, GMCP, etc.)
+//! - Command and option serialization/deserialization
+//! - RFC compliance checking and categorization
 
 // Re-export main types for convenience
-// Note: These don't exist yet - they'll be implemented in subsequent phases
-// pub use protocol::{TelnetCommand, TelnetOption};
-// pub use negotiation::OptionNegotiator;
-// pub use stream::TelnetStream;
+pub use protocol::{IAC, TelnetCommand, TelnetOption, TelnetSequence};
+// pub use negotiation::OptionNegotiator;  // Phase 4
+// pub use stream::TelnetStream;           // Phase 5
 
-// Module declarations - these will be implemented incrementally
-// mod protocol;      // Phase 2: Protocol constants and types
-// mod negotiation;   // Phase 4: Core negotiation logic  
-// mod stream;        // Phase 5: TelnetStream wrapper
-// mod options;       // Phase 6: Individual option implementations
+// Module declarations - implemented incrementally
+pub mod protocol; // Phase 2: ✅ Protocol constants and types
+// mod negotiation;    // Phase 4: Core negotiation logic
+// mod stream;         // Phase 5: TelnetStream wrapper
+// mod options;        // Phase 6: Individual option implementations
 
 /// Library version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -41,15 +47,24 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Supported Telnet RFCs
 pub const SUPPORTED_RFCS: &[&str] = &[
     "RFC 854 - Telnet Protocol Specification",
-    "RFC 1143 - The Q Method of Implementing TELNET Option Negotiation",
-    // Future RFCs will be added as we implement them:
-    // "RFC 857 - Telnet Echo Option",
-    // "RFC 1091 - Telnet Terminal-Type Option", 
-    // "RFC 1073 - Telnet Window Size Option",
+    "RFC 855 - Telnet Option Specifications",
+    "RFC 856 - Telnet Binary Transmission",
+    "RFC 857 - Telnet Echo Option",
+    "RFC 858 - Telnet Suppress Go Ahead Option",
+    "RFC 859 - Telnet Status Option",
+    "RFC 860 - Telnet Timing Mark Option",
+    "RFC 1073 - Telnet Window Size Option",
+    "RFC 1079 - Telnet Terminal Speed Option",
+    "RFC 1091 - Telnet Terminal-Type Option",
+    "RFC 1096 - Telnet X Display Location Option",
+    "RFC 1184 - Telnet Linemode Option",
+    "RFC 1571 - Telnet Environment Option",
+    // RFC 1143 will be added in Phase 4:
+    // "RFC 1143 - The Q Method of Implementing TELNET Option Negotiation",
 ];
 
 /// Phase 1 verification function
-/// 
+///
 /// This function exists solely to verify that the library crate is properly
 /// structured and can be imported. It will be removed in later phases.
 pub fn verify_library_structure() -> &'static str {
@@ -63,7 +78,10 @@ mod tests {
     #[test]
     fn test_library_initialization() {
         let result = verify_library_structure();
-        assert_eq!(result, "telnet-negotiation library structure initialized successfully");
+        assert_eq!(
+            result,
+            "telnet-negotiation library structure initialized successfully"
+        );
     }
 
     #[test]

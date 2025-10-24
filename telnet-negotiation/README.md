@@ -14,13 +14,16 @@ This library implements the following RFCs:
 
 ### Phase 1: ✅ Minimal Structure
 - [x] Basic crate structure and workspace integration
-- [x] Module declarations (not yet implemented)
-- [x] Documentation framework with RFC references
+- [x] Module declarations and documentation framework
+- [x] RFC reference system established
 
-### Phase 2: 🔄 Protocol Fundamentals  
-- [ ] Telnet command constants (IAC, WILL, WON'T, DO, DON'T)
-- [ ] Basic protocol types and enums
-- [ ] Binary data handling foundations
+### Phase 2: ✅ Protocol Fundamentals  
+- [x] Complete Telnet command set (IAC, WILL, WONT, DO, DONT, etc.)
+- [x] Standard Telnet options (Echo, Terminal Type, NAWS, etc.)
+- [x] MUD/MUSH protocol extensions (MCCP, MXP, GMCP, etc.)
+- [x] Command/option serialization and deserialization
+- [x] RFC compliance checking and categorization
+- [x] Comprehensive test coverage and example demo
 
 ### Phase 3: 🔄 Command Detection
 - [ ] IAC (Interpret As Command) sequence parsing
@@ -70,6 +73,19 @@ let mut telnet_stream = TelnetStream::new(stream);
 // Automatic negotiation happens transparently
 telnet_stream.write(b"Hello, telnet world!")?;
 ```
+
+## Current Status
+
+**Phase 2 Complete**: Core Telnet protocol constants and types implemented. All 12 tests passing.
+
+### Available Features:
+- Complete RFC 854 command set with byte conversion
+- 40+ standard Telnet options plus MUD/MUSH extensions  
+- Command categorization and RFC compliance checking
+- Sequence serialization for protocol messages
+- Comprehensive test coverage and working example
+
+Ready to proceed to Phase 3: Command Detection.
 
 ## Integration
 
