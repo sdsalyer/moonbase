@@ -445,6 +445,10 @@ impl MenuItem {
     pub fn info(text: &str) -> Self {
         MenuItem::Info(text.to_string())
     }
+
+    pub fn blank() -> Self {
+        MenuItem::Info("".to_string())
+    }
 }
 
 // TODO: Support for Non-ASCII characters
