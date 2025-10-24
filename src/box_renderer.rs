@@ -446,10 +446,6 @@ impl MenuItem {
         MenuItem::Info(text.to_string())
     }
 
-    pub fn header(text: &str) -> Self {
-        MenuItem::Info(format!("=== {} ===", text))
-    }
-
     pub fn blank() -> Self {
         MenuItem::Info("".to_string())
     }

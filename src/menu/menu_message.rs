@@ -57,10 +57,7 @@ fn render_main_menu(session: &BbsSession) -> MenuRender {
     let username = session.display_username();
     let title = format!("PRIVATE MESSAGES - {}", username);
 
-    let mut items = vec![
-        MenuItem::header("Message System"),
-        MenuItem::blank(),
-    ];
+    let mut items = vec![];
 
     // Get message stats if user is logged in
     if let Some(user) = &session.user {
@@ -90,10 +87,7 @@ fn render_inbox(session: &BbsSession, messages: &[PrivateMessage]) -> MenuRender
     let username = session.display_username();
     let title = format!("INBOX - {} ({} messages)", username, messages.len());
 
-    let mut items = vec![
-        MenuItem::header("Your Inbox"),
-        MenuItem::blank(),
-    ];
+    let mut items = vec![];
 
     if messages.is_empty() {
         items.extend([
@@ -101,7 +95,10 @@ fn render_inbox(session: &BbsSession, messages: &[PrivateMessage]) -> MenuRender
             MenuItem::blank(),
         ]);
     } else {
-        items.push(MenuItem::info("ID | From         | Subject                | Sent"));
+        items.push(MenuItem::info(
+            // Leading spaces for status
+            "    ID | From         | Subject                | Sent",
+        ));
         items.push(MenuItem::separator());
 
         for (index, message) in messages.iter().enumerate().take(20) {
@@ -148,10 +145,7 @@ fn render_sent(session: &BbsSession, messages: &[PrivateMessage]) -> MenuRender 
     let username = session.display_username();
     let title = format!("SENT MESSAGES - {} ({} messages)", username, messages.len());
 
-    let mut items = vec![
-        MenuItem::header("Your Sent Messages"),
-        MenuItem::blank(),
-    ];
+    let mut items = vec![];
 
     if messages.is_empty() {
         items.extend([
@@ -159,7 +153,10 @@ fn render_sent(session: &BbsSession, messages: &[PrivateMessage]) -> MenuRender 
             MenuItem::blank(),
         ]);
     } else {
-        items.push(MenuItem::info("ID | To           | Subject                | Sent"));
+        items.push(MenuItem::info(
+            // Leading spaces for status
+            "    ID | To           | Subject                | Sent",
+        ));
         items.push(MenuItem::separator());
 
         for (index, message) in messages.iter().enumerate().take(20) {
@@ -206,8 +203,6 @@ fn render_compose(_session: &BbsSession) -> MenuRender {
     let title = "COMPOSE MESSAGE";
 
     let items = vec![
-        MenuItem::header("Send a Private Message"),
-        MenuItem::blank(),
         MenuItem::info("Enter the username of the recipient."),
         MenuItem::info("Leave blank to cancel."),
         MenuItem::blank(),
@@ -220,8 +215,6 @@ fn render_compose_content(_session: &BbsSession, recipient: &str, subject: &str)
     let title = "COMPOSE MESSAGE";
 
     let items = vec![
-        MenuItem::header("Message Content"),
-        MenuItem::blank(),
         MenuItem::info(&format!("To: {}", recipient)),
         MenuItem::info(&format!("Subject: {}", subject)),
         MenuItem::blank(),
@@ -237,8 +230,6 @@ fn render_message(session: &BbsSession, message: &PrivateMessage) -> MenuRender 
     let title = "READING MESSAGE";
 
     let mut items = vec![
-        MenuItem::header("Private Message"),
-        MenuItem::blank(),
         MenuItem::info(&format!("From: {}", message.sender)),
         MenuItem::info(&format!("To: {}", message.recipient)),
         MenuItem::info(&format!("Subject: {}", message.subject)),
@@ -249,7 +240,7 @@ fn render_message(session: &BbsSession, message: &PrivateMessage) -> MenuRender 
     // Add message content, wrapped to fit menu width
     let content_width = session.config.ui.menu_width.saturating_sub(4);
     let content_lines = message.get_content_lines(content_width);
-    
+
     for line in content_lines {
         items.push(MenuItem::info(&line));
     }
@@ -277,7 +268,11 @@ fn handle_main_menu_input(_session: &BbsSession, input: &str) -> MenuAction {
     }
 }
 
-fn handle_inbox_input(_session: &BbsSession, input: &str, messages: &[PrivateMessage]) -> MenuAction {
+fn handle_inbox_input(
+    _session: &BbsSession,
+    input: &str,
+    messages: &[PrivateMessage],
+) -> MenuAction {
     match input.to_lowercase().as_str() {
         "c" | "compose" => MenuAction::MessageCompose,
         "r" | "refresh" => MenuAction::MessageInbox,
@@ -293,13 +288,19 @@ fn handle_inbox_input(_session: &BbsSession, input: &str, messages: &[PrivateMes
                     MenuAction::ShowMessage("Invalid message number.".to_string())
                 }
             } else {
-                MenuAction::ShowMessage("Invalid choice. Enter a message number or command.".to_string())
+                MenuAction::ShowMessage(
+                    "Invalid choice. Enter a message number or command.".to_string(),
+                )
             }
         }
     }
 }
 
-fn handle_sent_input(_session: &BbsSession, input: &str, messages: &[PrivateMessage]) -> MenuAction {
+fn handle_sent_input(
+    _session: &BbsSession,
+    input: &str,
+    messages: &[PrivateMessage],
+) -> MenuAction {
     match input.to_lowercase().as_str() {
         "c" | "compose" => MenuAction::MessageCompose,
         "r" | "refresh" => MenuAction::MessageSent,
@@ -315,7 +316,9 @@ fn handle_sent_input(_session: &BbsSession, input: &str, messages: &[PrivateMess
                     MenuAction::ShowMessage("Invalid message number.".to_string())
                 }
             } else {
-                MenuAction::ShowMessage("Invalid choice. Enter a message number or command.".to_string())
+                MenuAction::ShowMessage(
+                    "Invalid choice. Enter a message number or command.".to_string(),
+                )
             }
         }
     }
@@ -361,3 +364,4 @@ fn handle_reading_input(_session: &BbsSession, input: &str) -> MenuAction {
         _ => MenuAction::ShowMessage("Invalid choice. Please try again.".to_string()),
     }
 }
+
