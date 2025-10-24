@@ -1,7 +1,21 @@
+# Moonbase BBS - Main workspace root
+[workspace]
+members = [
+    ".",           # The main moonbase crate
+    "telnet-negotiation"  # Our new telnet library crate
+]
+
 [package]
 name = "moonbase"
 version = "0.1.2"
 edition = "2024"
+authors = ["b3rts <dev@b3rts.dev>"]
+license = "GPL-3.0"
+description = "A modern BBS (Bulletin Board System) server written in Rust with telnet support"
+homepage = "https://github.com/sdsalyer/moonbase"
+repository = "https://github.com/sdsalyer/moonbase"
+keywords = ["bbs", "telnet", "bulletin-board", "server", "retro"]
+categories = ["network-programming", "command-line-utilities"]
 
 [[bin]]
 name = "moonbase"
@@ -16,6 +30,7 @@ crossterm = "0.29.0"
 jiff = { version = "0.2.15", features = ["serde"] }
 serde = { version = "1.0.226", features = ["derive"] }
 serde_json = "1.0.145"
+# Phase 5: We'll add telnet-negotiation = { path = "telnet-negotiation" } here
 
 [dev-dependencies]
 tempfile = "3.23.0"
