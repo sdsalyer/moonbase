@@ -26,7 +26,7 @@ pub struct BbsSession {
     pub bulletin_stats: Option<BulletinStats>,
 
     // Session resources
-    services: Arc<crate::services::CoreServices>,
+    pub services: Arc<crate::services::CoreServices>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
 
@@ -34,7 +34,7 @@ pub struct BbsSession {
     menu_main: crate::menu::menu_main::MainMenu,
     menu_bulletin: crate::menu::menu_bulletin::BulletinMenu,
     menu_user: crate::menu::menu_user::UserMenu,
-    // menu_message: crate::menu::menu_message::MessageMenu,
+    menu_message: crate::menu::menu_message::MessageMenu,
     // menu_file: crate::menu::menu_file::FileMenu,
 }
 
@@ -56,7 +56,7 @@ impl BbsSession {
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
             menu_user: crate::menu::menu_user::UserMenu::new(),
-            // menu_message: crate::menu::menu_message::MessageMenu::new(),
+            menu_message: crate::menu::menu_message::MessageMenu::new(),
             // menu_file: crate::menu::menu_file::FileMenu::new(),
         }
     }
@@ -114,7 +114,7 @@ impl BbsSession {
             Menu::Main => &self.menu_main,
             Menu::Bulletins => &self.menu_bulletin,
             Menu::Users => &self.menu_user,
-            // CurrentMenu::Messages => &self.menu_message,
+            Menu::Messages => &self.menu_message,
             // CurrentMenu::Files => &self.menu_file,
         }
     }
@@ -264,6 +264,50 @@ impl BbsSession {
             MenuAction::BulletinToggleUnreadOnly => {
                 self.menu_bulletin.toggle_unread_only();
                 self.refresh_bulletin_stats()?;
+                Ok(true)
+            }
+
+            // Message-specific actions
+            MenuAction::MessageInbox => {
+                let messages = self.get_user_inbox()?;
+                self.menu_message.state = crate::menu::menu_message::MessageMenuState::Inbox(messages);
+                Ok(true)
+            }
+            MenuAction::MessageSent => {
+                let messages = self.get_user_sent_messages()?;
+                self.menu_message.state = crate::menu::menu_message::MessageMenuState::Sent(messages);
+                Ok(true)
+            }
+            MenuAction::MessageCompose => {
+                self.menu_message.state = crate::menu::menu_message::MessageMenuState::Compose;
+                Ok(true)
+            }
+            MenuAction::MessageComposeSubject(recipient) => {
+                let subject = self.get_input(stream, "Subject: ")?;
+                if subject.trim().is_empty() {
+                    self.menu_message.state = crate::menu::menu_message::MessageMenuState::MainMenu;
+                } else {
+                    self.menu_message.state = crate::menu::menu_message::MessageMenuState::ComposeContent { 
+                        recipient, 
+                        subject: subject.trim().to_string() 
+                    };
+                }
+                Ok(true)
+            }
+            MenuAction::MessageSend { recipient, subject, content } => {
+                self.handle_message_send(stream, recipient, subject, content)?;
+                Ok(true)
+            }
+            MenuAction::MessageRead(id) => {
+                self.handle_message_read(stream, id)?;
+                Ok(true)
+            }
+            MenuAction::MessageDelete(id) => {
+                self.handle_message_delete(stream, id)?;
+                Ok(true)
+            }
+            MenuAction::MessageBackToMenu => {
+                self.menu_message.state = crate::menu::menu_message::MessageMenuState::MainMenu;
                 Ok(true)
             }
         }
@@ -756,6 +800,151 @@ Location: {}
         // This method is not currently used, but keeping for potential future use
         // Would need to be implemented if needed
         todo!("get_all_bulletins not implemented for service layer")
+    }
+
+    /// Get user's inbox messages
+    fn get_user_inbox(&self) -> BbsResult<Vec<crate::messages::PrivateMessage>> {
+        if let Some(user) = &self.user {
+            self.services.messages.get_inbox(&user.username)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Get user's sent messages
+    fn get_user_sent_messages(&self) -> BbsResult<Vec<crate::messages::PrivateMessage>> {
+        if let Some(user) = &self.user {
+            self.services.messages.get_sent(&user.username)
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    /// Handle sending a private message
+    fn handle_message_send(
+        &mut self,
+        stream: &mut TcpStream,
+        recipient: String,
+        subject: String,
+        content: String,
+    ) -> BbsResult<()> {
+        let sender = self.display_username();
+
+        if sender == "Anonymous" {
+            self.show_message_with_stream(
+                stream,
+                "ERROR",
+                "You must be logged in to send private messages.",
+                Some(Color::Red),
+            )?;
+            return Ok(());
+        }
+
+        // Create message request
+        let request = crate::messages::MessageRequest::new(recipient.clone(), subject.clone(), content, sender);
+
+        // Send message
+        let result = self.services.messages.send_message(request, &self.config);
+
+        match result {
+            Ok(message_id) => {
+                self.show_message_with_stream(
+                    stream,
+                    "MESSAGE SENT",
+                    &format!(
+                        "Your message '{}' has been sent to {} as #{}",
+                        subject, recipient, message_id
+                    ),
+                    Some(Color::Green),
+                )?;
+
+                // Reset menu state
+                self.menu_message.state = crate::menu::menu_message::MessageMenuState::MainMenu;
+                Ok(())
+            }
+            Err(e) => {
+                self.show_message_with_stream(
+                    stream,
+                    "SEND FAILED",
+                    &format!("Failed to send message: {}", e),
+                    Some(Color::Red),
+                )?;
+                Ok(())
+            }
+        }
+    }
+
+    /// Handle reading a private message
+    fn handle_message_read(
+        &mut self,
+        stream: &mut TcpStream,
+        id: u32,
+    ) -> BbsResult<()> {
+        if let Some(user) = &self.user {
+            match self.services.messages.read_message(id, &user.username)? {
+                Some(message) => {
+                    self.menu_message.state = crate::menu::menu_message::MessageMenuState::Reading(message);
+                    Ok(())
+                }
+                None => {
+                    self.show_message_with_stream(
+                        stream,
+                        "MESSAGE NOT FOUND",
+                        &format!("Message #{} was not found or you don't have permission to read it.", id),
+                        Some(Color::Red),
+                    )?;
+                    Ok(())
+                }
+            }
+        } else {
+            self.show_message_with_stream(
+                stream,
+                "ERROR",
+                "You must be logged in to read private messages.",
+                Some(Color::Red),
+            )?;
+            Ok(())
+        }
+    }
+
+    /// Handle deleting a private message
+    fn handle_message_delete(
+        &mut self,
+        stream: &mut TcpStream,
+        id: u32,
+    ) -> BbsResult<()> {
+        if let Some(user) = &self.user {
+            match self.services.messages.delete_message(id, &user.username) {
+                Ok(()) => {
+                    self.show_message_with_stream(
+                        stream,
+                        "MESSAGE DELETED",
+                        &format!("Message #{} has been deleted.", id),
+                        Some(Color::Green),
+                    )?;
+                    // Return to inbox
+                    self.menu_message.state = crate::menu::menu_message::MessageMenuState::MainMenu;
+                    Ok(())
+                }
+                Err(e) => {
+                    self.show_message_with_stream(
+                        stream,
+                        "DELETE FAILED",
+                        &format!("Failed to delete message: {}", e),
+                        Some(Color::Red),
+                    )?;
+                    Ok(())
+                }
+            }
+        } else {
+            self.show_message_with_stream(
+                stream,
+                "ERROR",
+                "You must be logged in to delete private messages.",
+                Some(Color::Red),
+            )?;
+            Ok(())
+        }
     }
 
     // Show feature disabled message

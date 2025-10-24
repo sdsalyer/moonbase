@@ -1,7 +1,7 @@
 pub mod menu_bulletin;
 pub mod menu_main;
+pub mod menu_message;
 pub mod menu_user;
-// pub mod message_menu;
 // pub mod file_menu;
 
 use crate::box_renderer::MenuItem;
@@ -14,7 +14,7 @@ pub enum Menu {
     Main,
     Bulletins,
     Users,
-    // Messages,
+    Messages,
     // Files,
 }
 
@@ -38,6 +38,16 @@ pub enum MenuAction {
     BulletinBackToMenu,
     BulletinToggleReadFilter,
     BulletinToggleUnreadOnly,
+
+    // Message-specific actions
+    MessageInbox,
+    MessageSent,
+    MessageCompose,
+    MessageComposeSubject(String),
+    MessageSend { recipient: String, subject: String, content: String },
+    MessageRead(u32),
+    MessageDelete(u32),
+    MessageBackToMenu,
 }
 
 /// Statistics about users for display in menus

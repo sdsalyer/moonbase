@@ -39,7 +39,25 @@ impl MenuScreen for MainMenu {
         }
 
         items.push(MenuItem::option("2", "User Directory"));
-        items.push(MenuItem::option("3", "Private Messages"));
+        
+        // Private Messages with unread count
+        if data.is_logged_in() {
+            if let Some(user) = &data.user {
+                if let Ok(unread_count) = data.services.messages.get_unread_count(&user.username) {
+                    if unread_count > 0 {
+                        items.push(MenuItem::option("3", &format!("Private Messages [{}]", unread_count)));
+                    } else {
+                        items.push(MenuItem::option("3", "Private Messages"));
+                    }
+                } else {
+                    items.push(MenuItem::option("3", "Private Messages"));
+                }
+            } else {
+                items.push(MenuItem::option("3", "Private Messages"));
+            }
+        } else {
+            items.push(MenuItem::option("3", "Private Messages"));
+        }
 
         if data.config.features.file_uploads_enabled {
             items.push(MenuItem::option("4", "File Library"));
@@ -72,15 +90,20 @@ impl MenuScreen for MainMenu {
             }
             "2" => MenuAction::GoTo(Menu::Users),
 
-            "3" | "4" => MenuAction::ShowMessage("Feature coming soon!".to_string()),
-            // "3" => MenuAction::GoTo(CurrentMenu::Messages),
-            // "4" => {
-            //     if data.config.features.file_uploads_enabled {
-            //         MenuAction::GoTo(CurrentMenu::Files)
-            //     } else {
-            //         MenuAction::ShowMessage("File Library is currently disabled.".to_string())
-            //     }
-            // },
+            "3" => {
+                if data.is_logged_in() {
+                    MenuAction::GoTo(Menu::Messages)
+                } else {
+                    MenuAction::ShowMessage("You must be logged in to use private messages.".to_string())
+                }
+            }
+            "4" => {
+                if data.config.features.file_uploads_enabled {
+                    MenuAction::ShowMessage("File Library coming soon!".to_string())
+                } else {
+                    MenuAction::ShowMessage("File Library is currently disabled.".to_string())
+                }
+            }
             "l" | "login" => {
                 if !data.is_logged_in() && data.allow_anonymous() {
                     MenuAction::Login
