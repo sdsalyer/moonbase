@@ -364,4 +364,3 @@ fn handle_reading_input(_session: &BbsSession, input: &str) -> MenuAction {
         _ => MenuAction::ShowMessage("Invalid choice. Please try again.".to_string()),
     }
 }
-

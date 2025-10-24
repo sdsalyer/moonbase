@@ -39,13 +39,16 @@ impl MenuScreen for MainMenu {
         }
 
         items.push(MenuItem::option("2", "User Directory"));
-        
+
         // Private Messages with unread count
         if data.is_logged_in() {
             if let Some(user) = &data.user {
                 if let Ok(unread_count) = data.services.messages.get_unread_count(&user.username) {
                     if unread_count > 0 {
-                        items.push(MenuItem::option("3", &format!("Private Messages [{}]", unread_count)));
+                        items.push(MenuItem::option(
+                            "3",
+                            &format!("Private Messages [{}]", unread_count),
+                        ));
                     } else {
                         items.push(MenuItem::option("3", "Private Messages"));
                     }
@@ -94,7 +97,9 @@ impl MenuScreen for MainMenu {
                 if data.is_logged_in() {
                     MenuAction::GoTo(Menu::Messages)
                 } else {
-                    MenuAction::ShowMessage("You must be logged in to use private messages.".to_string())
+                    MenuAction::ShowMessage(
+                        "You must be logged in to use private messages.".to_string(),
+                    )
                 }
             }
             "4" => {

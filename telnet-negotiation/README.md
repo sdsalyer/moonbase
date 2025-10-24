@@ -25,10 +25,13 @@ This library implements the following RFCs:
 - [x] RFC compliance checking and categorization
 - [x] Comprehensive test coverage and example demo
 
-### Phase 3: 🔄 Command Detection
-- [ ] IAC (Interpret As Command) sequence parsing
-- [ ] Byte stream separation (data vs commands)
-- [ ] Command buffering without processing
+### Phase 3: ✅ Command Detection
+- [x] IAC (Interpret As Command) sequence parsing with state machine
+- [x] Byte stream separation (data vs commands)
+- [x] Stateful parsing across multiple input chunks
+- [x] Sub-negotiation sequence handling
+- [x] Integration with Moonbase BBS for command logging
+- [x] Comprehensive test coverage and demo example
 
 ### Phase 4: 🔄 Basic Negotiation
 - [ ] WILL/WON'T/DO/DON'T handling
@@ -76,16 +79,20 @@ telnet_stream.write(b"Hello, telnet world!")?;
 
 ## Current Status
 
-**Phase 2 Complete**: Core Telnet protocol constants and types implemented. All 12 tests passing.
+**Phase 3 Complete**: IAC sequence parsing and command detection implemented. All 23 tests passing.
 
 ### Available Features:
 - Complete RFC 854 command set with byte conversion
 - 40+ standard Telnet options plus MUD/MUSH extensions  
 - Command categorization and RFC compliance checking
 - Sequence serialization for protocol messages
-- Comprehensive test coverage and working example
+- **NEW**: Stateful IAC sequence parsing from byte streams
+- **NEW**: Data/command separation with partial sequence handling
+- **NEW**: Sub-negotiation sequence support (IAC SB ... IAC SE)
+- **NEW**: Integration with Moonbase BBS for real-world testing
+- Comprehensive test coverage with demo examples
 
-Ready to proceed to Phase 3: Command Detection.
+Ready to proceed to Phase 4: Option Negotiation State Machine.
 
 ## Integration
 

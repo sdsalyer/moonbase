@@ -18,9 +18,9 @@
 //! - `stream`: TelnetStream wrapper for transparent integration
 //! - `options`: Individual option implementations (Echo, Terminal Type, etc.)
 //!
-//! ## Phase 2: Protocol Fundamentals
+//! ## Phase 3: Command Detection
 //!
-//! This version implements the core Telnet protocol constants and types from RFC 854.
+//! This version implements IAC sequence parsing from byte streams (RFC 854).
 //! Each phase incrementally adds features while maintaining backward compatibility.
 //!
 //! ### Available Features:
@@ -28,14 +28,19 @@
 //! - Standard Telnet options (Echo, Terminal Type, NAWS, etc.)
 //! - MUSH/MUD protocol extensions (MCCP, MXP, GMCP, etc.)
 //! - Command and option serialization/deserialization
+//! - **NEW**: IAC sequence detection and parsing from byte streams
+//! - **NEW**: Data/command separation with stateful parsing
+//! - **NEW**: Sub-negotiation sequence handling
 //! - RFC compliance checking and categorization
 
 // Re-export main types for convenience
+pub use parser::{ParseResult, TelnetParser};
 pub use protocol::{IAC, TelnetCommand, TelnetOption, TelnetSequence};
 // pub use negotiation::OptionNegotiator;  // Phase 4
 // pub use stream::TelnetStream;           // Phase 5
 
 // Module declarations - implemented incrementally
+pub mod parser; // Phase 3: ✅ Command detection and parsing
 pub mod protocol; // Phase 2: ✅ Protocol constants and types
 // mod negotiation;    // Phase 4: Core negotiation logic
 // mod stream;         // Phase 5: TelnetStream wrapper

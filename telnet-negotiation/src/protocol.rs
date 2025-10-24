@@ -480,6 +480,48 @@ impl TelnetOption {
             _ => None,
         }
     }
+
+    /// Get common sub-negotiation command bytes for this option
+    ///
+    /// Returns the standard command bytes used in sub-negotiation for specific options.
+    /// These are sent as data within IAC SB <option> <command> ... IAC SE sequences.
+    ///
+    /// # Returns
+    /// Array of tuples: (command_name, command_byte, description)
+    ///
+    /// # Examples
+    /// ```
+    /// use telnet_negotiation::TelnetOption;
+    ///
+    /// let commands = TelnetOption::TERMINAL_TYPE.subnegotiation_commands();
+    /// assert_eq!(commands[0], ("IS", 0, "Here is my terminal type"));
+    /// assert_eq!(commands[1], ("SEND", 1, "Please tell me your terminal type"));
+    /// ```
+    pub fn subnegotiation_commands(self) -> &'static [(&'static str, u8, &'static str)] {
+        match self {
+            TelnetOption::TERMINAL_TYPE => &[
+                ("IS", 0, "Here is my terminal type"),
+                ("SEND", 1, "Please tell me your terminal type"),
+            ],
+            TelnetOption::NAWS => &[(
+                "SIZE",
+                0,
+                "Window size data (4 bytes: width MSB, width LSB, height MSB, height LSB)",
+            )],
+            TelnetOption::NEW_ENVIRON => &[
+                ("IS", 0, "Here are my environment variables"),
+                ("SEND", 1, "Please send your environment variables"),
+                ("INFO", 2, "Information about environment variables"),
+            ],
+            // MUD/MUSH protocols have their own sub-negotiation formats
+            TelnetOption::GMCP => &[(
+                "JSON",
+                0,
+                "JSON data for Generic MUD Communication Protocol",
+            )],
+            _ => &[],
+        }
+    }
 }
 
 /// Represents a complete Telnet command sequence
@@ -610,6 +652,26 @@ mod tests {
     }
 
     #[test]
+    fn test_subnegotiation_commands() {
+        let commands = TelnetOption::TERMINAL_TYPE.subnegotiation_commands();
+        assert_eq!(commands.len(), 2);
+        assert_eq!(commands[0], ("IS", 0, "Here is my terminal type"));
+        assert_eq!(
+            commands[1],
+            ("SEND", 1, "Please tell me your terminal type")
+        );
+
+        let naws_commands = TelnetOption::NAWS.subnegotiation_commands();
+        assert_eq!(naws_commands.len(), 1);
+        assert_eq!(naws_commands[0].0, "SIZE");
+        assert_eq!(naws_commands[0].1, 0);
+
+        // Options without sub-negotiation should return empty
+        let echo_commands = TelnetOption::ECHO.subnegotiation_commands();
+        assert_eq!(echo_commands.len(), 0);
+    }
+
+    #[test]
     fn test_sequence_serialization() {
         // Simple command: IAC NOP
         let cmd = TelnetSequence::Command(TelnetCommand::NOP);
@@ -637,4 +699,3 @@ mod tests {
         assert_eq!(escaped.to_bytes(), vec![255, 255]);
     }
 }
-

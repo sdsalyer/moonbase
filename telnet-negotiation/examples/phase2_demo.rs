@@ -98,4 +98,3 @@ fn main() {
     println!("This demonstrates the foundation for Telnet protocol handling.");
     println!("Next phases will add parsing, negotiation state machines, and stream integration.");
 }
-

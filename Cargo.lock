@@ -221,6 +221,7 @@ dependencies = [
  "jiff",
  "serde",
  "serde_json",
+ "telnet-negotiation",
  "tempfile",
 ]
 

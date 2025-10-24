@@ -18,6 +18,9 @@ use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::Duration;
 
+// Phase 3: Add telnet command detection
+use telnet_negotiation::{TelnetCommand, TelnetOption, TelnetParser, TelnetSequence};
+
 pub struct BbsSession {
     pub config: Arc<BbsConfig>,
     pub user: Option<User>,
@@ -29,6 +32,9 @@ pub struct BbsSession {
     pub services: Arc<crate::services::CoreServices>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
+
+    // Phase 3: Telnet command detection
+    telnet_parser: TelnetParser,
 
     // Menu instances (owned by session, can maintain state)
     menu_main: crate::menu::menu_main::MainMenu,
@@ -53,6 +59,10 @@ impl BbsSession {
             services,
             box_renderer,
             login_attempts: 0,
+
+            // Phase 3: Initialize telnet command parser
+            telnet_parser: TelnetParser::new(),
+
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
             menu_user: crate::menu::menu_user::UserMenu::new(),
@@ -169,22 +179,25 @@ impl BbsSession {
         // This has to come first because of the mutable borrow
         let _ = self.calculate_user_stats();
 
-        // 2. Get current menu
-        let menu_current = self.menu_get_current();
+        // 2. Get current menu and render
+        let menu_render = {
+            let menu_current = self.menu_get_current();
+            menu_current.render(self)
+        };
 
-        // 3. Render menu (pure function, returns data)
-        let menu_render = menu_current.render(self);
-
-        // 4. Display menu (session handles I/O)
+        // 3. Display menu (session handles I/O)
         self.menu_show(stream, &menu_render)?;
 
-        // 5. Get input (session handles I/O)
+        // 4. Get input (session handles I/O) - now we can borrow mutably
         let input = self.get_input(stream, &menu_render.prompt)?;
 
-        // 6. Handle input (pure function, returns action)
-        let action = menu_current.handle_input(self, &input);
+        // 5. Handle input and process action
+        let action = {
+            let menu_current = self.menu_get_current();
+            menu_current.handle_input(self, &input)
+        };
 
-        // 7. Process action (session handles state changes)
+        // 6. Process action (session handles state changes)
         self.menu_handle_action(stream, action)
     }
 
@@ -270,12 +283,14 @@ impl BbsSession {
             // Message-specific actions
             MenuAction::MessageInbox => {
                 let messages = self.get_user_inbox()?;
-                self.menu_message.state = crate::menu::menu_message::MessageMenuState::Inbox(messages);
+                self.menu_message.state =
+                    crate::menu::menu_message::MessageMenuState::Inbox(messages);
                 Ok(true)
             }
             MenuAction::MessageSent => {
                 let messages = self.get_user_sent_messages()?;
-                self.menu_message.state = crate::menu::menu_message::MessageMenuState::Sent(messages);
+                self.menu_message.state =
+                    crate::menu::menu_message::MessageMenuState::Sent(messages);
                 Ok(true)
             }
             MenuAction::MessageCompose => {
@@ -287,14 +302,19 @@ impl BbsSession {
                 if subject.trim().is_empty() {
                     self.menu_message.state = crate::menu::menu_message::MessageMenuState::MainMenu;
                 } else {
-                    self.menu_message.state = crate::menu::menu_message::MessageMenuState::ComposeContent { 
-                        recipient, 
-                        subject: subject.trim().to_string() 
-                    };
+                    self.menu_message.state =
+                        crate::menu::menu_message::MessageMenuState::ComposeContent {
+                            recipient,
+                            subject: subject.trim().to_string(),
+                        };
                 }
                 Ok(true)
             }
-            MenuAction::MessageSend { recipient, subject, content } => {
+            MenuAction::MessageSend {
+                recipient,
+                subject,
+                content,
+            } => {
                 self.handle_message_send(stream, recipient, subject, content)?;
                 Ok(true)
             }
@@ -313,8 +333,8 @@ impl BbsSession {
         }
     }
 
-    /// Get user input with a prompt
-    fn get_input(&self, stream: &mut TcpStream, prompt: &str) -> BbsResult<String> {
+    /// Get user input with a prompt, handling telnet command detection
+    fn get_input(&mut self, stream: &mut TcpStream, prompt: &str) -> BbsResult<String> {
         stream.queue(Print(prompt))?;
         stream.flush()?;
 
@@ -322,10 +342,73 @@ impl BbsSession {
         match stream.read(&mut buffer) {
             Ok(0) => Err(BbsError::ClientDisconnected),
             Ok(n) => {
-                let input = String::from_utf8_lossy(&buffer[0..n]);
+                // Phase 3: Parse telnet commands from input
+                let parse_result = self.telnet_parser.parse(&buffer[0..n]);
+
+                // Log detected telnet commands (Phase 3 testing)
+                if !parse_result.sequences.is_empty() {
+                    self.log_telnet_commands(&parse_result.sequences);
+                }
+
+                // Return the data portion as user input
+                let input = String::from_utf8_lossy(&parse_result.data);
                 Ok(input.trim().to_string())
             }
             Err(e) => Err(BbsError::from(e)),
+        }
+    }
+
+    /// Log detected telnet commands for Phase 3 testing
+    fn log_telnet_commands(&self, sequences: &[TelnetSequence]) {
+        for sequence in sequences {
+            match sequence {
+                TelnetSequence::Command(cmd) => {
+                    eprintln!("[TELNET] Simple command: {:?}", cmd);
+                }
+                TelnetSequence::Negotiation { command, option } => {
+                    let description = self.describe_negotiation(*command, *option);
+                    eprintln!(
+                        "[TELNET] Negotiation: {:?} {:?} - {}",
+                        command, option, description
+                    );
+                }
+                TelnetSequence::SubNegotiation { option, data } => {
+                    eprintln!(
+                        "[TELNET] Sub-negotiation: {:?} with {} bytes of data",
+                        option,
+                        data.len()
+                    );
+                }
+                TelnetSequence::EscapedData(byte) => {
+                    eprintln!("[TELNET] Escaped data byte: {}", byte);
+                }
+            }
+        }
+    }
+
+    /// Provide human-readable descriptions of telnet negotiations
+    fn describe_negotiation(&self, command: TelnetCommand, option: TelnetOption) -> &'static str {
+        match (command, option) {
+            (TelnetCommand::WILL, TelnetOption::ECHO) => "Client will handle echoing",
+            (TelnetCommand::WONT, TelnetOption::ECHO) => "Client won't handle echoing",
+            (TelnetCommand::DO, TelnetOption::ECHO) => "Client wants server to echo",
+            (TelnetCommand::DONT, TelnetOption::ECHO) => "Client doesn't want server to echo",
+
+            (TelnetCommand::WILL, TelnetOption::SUPPRESS_GO_AHEAD) => "Client supports full-duplex",
+            (TelnetCommand::DO, TelnetOption::SUPPRESS_GO_AHEAD) => "Client wants full-duplex mode",
+
+            (TelnetCommand::WILL, TelnetOption::NAWS) => "Client will send window size",
+            (TelnetCommand::DO, TelnetOption::NAWS) => "Client wants window size updates",
+
+            (TelnetCommand::WILL, TelnetOption::TERMINAL_TYPE) => "Client will send terminal type",
+            (TelnetCommand::DO, TelnetOption::TERMINAL_TYPE) => "Client wants terminal type info",
+
+            // MUD/MUSH protocols
+            (TelnetCommand::WILL, TelnetOption::MCCP2) => "Client supports compression",
+            (TelnetCommand::WILL, TelnetOption::MXP) => "Client supports markup",
+            (TelnetCommand::WILL, TelnetOption::GMCP) => "Client supports JSON protocol",
+
+            _ => "Other telnet option",
         }
     }
 
@@ -841,7 +924,12 @@ Location: {}
         }
 
         // Create message request
-        let request = crate::messages::MessageRequest::new(recipient.clone(), subject.clone(), content, sender);
+        let request = crate::messages::MessageRequest::new(
+            recipient.clone(),
+            subject.clone(),
+            content,
+            sender,
+        );
 
         // Send message
         let result = self.services.messages.send_message(request, &self.config);
@@ -875,22 +963,22 @@ Location: {}
     }
 
     /// Handle reading a private message
-    fn handle_message_read(
-        &mut self,
-        stream: &mut TcpStream,
-        id: u32,
-    ) -> BbsResult<()> {
+    fn handle_message_read(&mut self, stream: &mut TcpStream, id: u32) -> BbsResult<()> {
         if let Some(user) = &self.user {
             match self.services.messages.read_message(id, &user.username)? {
                 Some(message) => {
-                    self.menu_message.state = crate::menu::menu_message::MessageMenuState::Reading(message);
+                    self.menu_message.state =
+                        crate::menu::menu_message::MessageMenuState::Reading(message);
                     Ok(())
                 }
                 None => {
                     self.show_message_with_stream(
                         stream,
                         "MESSAGE NOT FOUND",
-                        &format!("Message #{} was not found or you don't have permission to read it.", id),
+                        &format!(
+                            "Message #{} was not found or you don't have permission to read it.",
+                            id
+                        ),
                         Some(Color::Red),
                     )?;
                     Ok(())
@@ -908,11 +996,7 @@ Location: {}
     }
 
     /// Handle deleting a private message
-    fn handle_message_delete(
-        &mut self,
-        stream: &mut TcpStream,
-        id: u32,
-    ) -> BbsResult<()> {
+    fn handle_message_delete(&mut self, stream: &mut TcpStream, id: u32) -> BbsResult<()> {
         if let Some(user) = &self.user {
             match self.services.messages.delete_message(id, &user.username) {
                 Ok(()) => {
