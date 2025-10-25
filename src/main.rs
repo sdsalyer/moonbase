@@ -196,8 +196,10 @@ fn handle_client(
     config: Arc<BbsConfig>,
     services: Arc<CoreServices>,
 ) -> BbsResult<()> {
+    // Phase 5: Wrap TcpStream with TelnetStream for transparent telnet handling
+    let telnet_stream = telnet_negotiation::TelnetStream::new(stream);
     let mut session = BbsSession::new(config, services);
-    session.run(stream)
+    session.run(telnet_stream)
 }
 
 /// Show Server startup messages in console log

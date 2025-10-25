@@ -14,15 +14,11 @@ use crossterm::{
 };
 
 use std::io::{Read, Write};
-use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::Duration;
 
-// Phase 3: Add telnet command detection
-// Phase 4: Add option negotiation
-use telnet_negotiation::{
-    OptionNegotiator, TelnetCommand, TelnetOption, TelnetParser, TelnetSequence,
-};
+// Phase 5: Use TelnetStream for transparent telnet handling
+use telnet_negotiation::TelnetStream;
 
 pub struct BbsSession {
     pub config: Arc<BbsConfig>,
@@ -35,12 +31,6 @@ pub struct BbsSession {
     pub services: Arc<crate::services::CoreServices>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
-
-    // Phase 3: Telnet command detection
-    telnet_parser: TelnetParser,
-
-    // Phase 4: Option negotiation
-    option_negotiator: OptionNegotiator,
 
     // Menu instances (owned by session, can maintain state)
     menu_main: crate::menu::menu_main::MainMenu,
@@ -65,12 +55,6 @@ impl BbsSession {
             services,
             box_renderer,
             login_attempts: 0,
-
-            // Phase 3: Initialize telnet command parser
-            telnet_parser: TelnetParser::new(),
-
-            // Phase 4: Initialize option negotiator
-            option_negotiator: OptionNegotiator::new(),
 
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
@@ -99,7 +83,7 @@ impl BbsSession {
     }
 
     /// Run the BBS session with the provided stream
-    pub fn run(&mut self, mut stream: TcpStream) -> BbsResult<()> {
+    pub fn run(&mut self, mut stream: TelnetStream) -> BbsResult<()> {
         // Set initial timeout
         stream.set_read_timeout(Some(self.config.timeouts.connection_timeout))?;
 
@@ -183,7 +167,7 @@ impl BbsSession {
     }
 
     /// Main menu loop - render, display, get input, handle action
-    fn menu_handle_loop(&mut self, stream: &mut TcpStream) -> BbsResult<bool> {
+    fn menu_handle_loop(&mut self, stream: &mut TelnetStream) -> BbsResult<bool> {
         // 1. Check user stats
         // This has to come first because of the mutable borrow
         let _ = self.calculate_user_stats();
@@ -213,7 +197,7 @@ impl BbsSession {
     /// Process menu actions and update session state
     fn menu_handle_action(
         &mut self,
-        stream: &mut TcpStream,
+        stream: &mut TelnetStream,
         action: MenuAction,
     ) -> BbsResult<bool> {
         match action {
@@ -342,8 +326,8 @@ impl BbsSession {
         }
     }
 
-    /// Get user input with a prompt, handling telnet command detection
-    fn get_input(&mut self, stream: &mut TcpStream, prompt: &str) -> BbsResult<String> {
+    /// Get user input with a prompt - telnet handling now automatic via TelnetStream
+    fn get_input(&mut self, stream: &mut TelnetStream, prompt: &str) -> BbsResult<String> {
         stream.queue(Print(prompt))?;
         stream.flush()?;
 
@@ -351,141 +335,19 @@ impl BbsSession {
         match stream.read(&mut buffer) {
             Ok(0) => Err(BbsError::ClientDisconnected),
             Ok(n) => {
-                // Phase 3: Parse telnet commands from input
-                let parse_result = self.telnet_parser.parse(&buffer[0..n]);
-
-                // Phase 4: Process negotiation commands and generate responses
-                let mut responses = Vec::new();
-                for sequence in &parse_result.sequences {
-                    if let Some(response) = self.handle_negotiation_sequence(stream, sequence)? {
-                        responses.push(response);
-                    }
-                }
-
-                // Log detected telnet commands and responses
-                if !parse_result.sequences.is_empty() || !responses.is_empty() {
-                    self.log_telnet_activity(&parse_result.sequences, &responses);
-                }
-
-                // Return the data portion as user input
-                let input = String::from_utf8_lossy(&parse_result.data);
+                // Phase 5: TelnetStream automatically handles all telnet processing
+                // We only receive clean application data here
+                let input = String::from_utf8_lossy(&buffer[0..n]);
                 Ok(input.trim().to_string())
             }
             Err(e) => Err(BbsError::from(e)),
         }
     }
 
-    /// Handle a telnet negotiation sequence and generate appropriate response
-    fn handle_negotiation_sequence(
-        &mut self,
-        stream: &mut TcpStream,
-        sequence: &TelnetSequence,
-    ) -> BbsResult<Option<TelnetSequence>> {
-        match sequence {
-            TelnetSequence::Negotiation { command, option } => {
-                let result = match command {
-                    TelnetCommand::WILL => self.option_negotiator.handle_will(*option),
-                    TelnetCommand::WONT => self.option_negotiator.handle_wont(*option),
-                    TelnetCommand::DO => self.option_negotiator.handle_do(*option),
-                    TelnetCommand::DONT => self.option_negotiator.handle_dont(*option),
-                    _ => return Ok(None), // Not a negotiation command
-                };
 
-                // Send response if needed
-                if let Some(response) = &result.response {
-                    let response_bytes = response.to_bytes();
-                    stream.write_all(&response_bytes)?;
-                    stream.flush()?;
-                }
-
-                // Log state changes
-                if result.error.is_some() {
-                    eprintln!(
-                        "[TELNET] Negotiation error for {:?}: {}",
-                        option,
-                        result.error.as_ref().unwrap()
-                    );
-                }
-
-                Ok(result.response)
-            }
-            _ => Ok(None), // Not a negotiation sequence
-        }
-    }
-
-    /// Log detected telnet commands and responses
-    fn log_telnet_activity(&self, sequences: &[TelnetSequence], responses: &[TelnetSequence]) {
-        // Log incoming sequences
-        for sequence in sequences {
-            match sequence {
-                TelnetSequence::Command(cmd) => {
-                    eprintln!("[TELNET] Simple command: {:?}", cmd);
-                }
-                TelnetSequence::Negotiation { command, option } => {
-                    let description = self.describe_negotiation(*command, *option);
-                    eprintln!(
-                        "[TELNET] Negotiation: {:?} {:?} - {}",
-                        command, option, description
-                    );
-                }
-                TelnetSequence::SubNegotiation { option, data } => {
-                    eprintln!(
-                        "[TELNET] Sub-negotiation: {:?} with {} bytes of data",
-                        option,
-                        data.len()
-                    );
-                }
-                TelnetSequence::EscapedData(byte) => {
-                    eprintln!("[TELNET] Escaped data byte: {}", byte);
-                }
-            }
-        }
-
-        // Log outgoing responses
-        for response in responses {
-            match response {
-                TelnetSequence::Negotiation { command, option } => {
-                    let description = self.describe_negotiation(*command, *option);
-                    eprintln!(
-                        "[TELNET] Response: {:?} {:?} - {}",
-                        command, option, description
-                    );
-                }
-                _ => {
-                    eprintln!("[TELNET] Response: {:?}", response);
-                }
-            }
-        }
-    }
-
-    /// Provide human-readable descriptions of telnet negotiations
-    fn describe_negotiation(&self, command: TelnetCommand, option: TelnetOption) -> &'static str {
-        match (command, option) {
-            (TelnetCommand::WILL, TelnetOption::ECHO) => "Client will handle echoing",
-            (TelnetCommand::WONT, TelnetOption::ECHO) => "Client won't handle echoing",
-            (TelnetCommand::DO, TelnetOption::ECHO) => "Client wants server to echo",
-            (TelnetCommand::DONT, TelnetOption::ECHO) => "Client doesn't want server to echo",
-
-            (TelnetCommand::WILL, TelnetOption::SUPPRESS_GO_AHEAD) => "Client supports full-duplex",
-            (TelnetCommand::DO, TelnetOption::SUPPRESS_GO_AHEAD) => "Client wants full-duplex mode",
-
-            (TelnetCommand::WILL, TelnetOption::NAWS) => "Client will send window size",
-            (TelnetCommand::DO, TelnetOption::NAWS) => "Client wants window size updates",
-
-            (TelnetCommand::WILL, TelnetOption::TERMINAL_TYPE) => "Client will send terminal type",
-            (TelnetCommand::DO, TelnetOption::TERMINAL_TYPE) => "Client wants terminal type info",
-
-            // MUD/MUSH protocols
-            (TelnetCommand::WILL, TelnetOption::MCCP2) => "Client supports compression",
-            (TelnetCommand::WILL, TelnetOption::MXP) => "Client supports markup",
-            (TelnetCommand::WILL, TelnetOption::GMCP) => "Client supports JSON protocol",
-
-            _ => "Other telnet option",
-        }
-    }
 
     /// Initialize terminal state
-    fn initialize_terminal(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn initialize_terminal(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
         stream.flush()?;
@@ -493,7 +355,7 @@ impl BbsSession {
     }
 
     /// Show the welcome screen
-    fn show_welcome(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn show_welcome(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -530,7 +392,7 @@ Location: {}
     }
 
     /// Handle user login process
-    fn handle_login(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn handle_login(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -570,7 +432,7 @@ Location: {}
     }
 
     /// Handle login for existing user
-    fn handle_existing_login(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn handle_existing_login(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -633,7 +495,7 @@ Location: {}
     }
 
     /// Handle new user registration
-    fn handle_registration(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn handle_registration(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -714,7 +576,7 @@ Location: {}
     }
 
     /// Force login for restricted BBS
-    fn force_login(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn force_login(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         let message = "This BBS requires registration to access. Anonymous access has been disabled by the SysOp.";
 
         stream.queue(Clear(ClearType::All))?;
@@ -748,7 +610,7 @@ Location: {}
     }
 
     /// Single login attempt
-    fn attempt_login(&mut self, stream: &mut TcpStream) -> BbsResult<bool> {
+    fn attempt_login(&mut self, stream: &mut TelnetStream) -> BbsResult<bool> {
         self.login_attempts += 1;
 
         let username = self.get_input(
@@ -795,7 +657,7 @@ Location: {}
     }
 
     /// Display a rendered menu
-    fn menu_show(&self, stream: &mut TcpStream, render: &MenuRender) -> BbsResult<()> {
+    fn menu_show(&self, stream: &mut TelnetStream, render: &MenuRender) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
         self.box_renderer.render_menu(
@@ -811,7 +673,7 @@ Location: {}
     /// Display a message box with stream
     fn show_message_with_stream(
         &mut self,
-        stream: &mut TcpStream,
+        stream: &mut TelnetStream,
         title: &str,
         message: &str,
         color: Option<Color>,
@@ -837,7 +699,7 @@ Location: {}
     }
 
     /// Show goodbye screen
-    fn show_goodbye(&mut self, stream: &mut TcpStream) -> BbsResult<()> {
+    fn show_goodbye(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
         stream.queue(cursor::MoveTo(0, 0))?;
 
@@ -862,7 +724,7 @@ Location: {}
     }
 
     /// Handle bulletin reading
-    fn handle_bulletin_read(&mut self, stream: &mut TcpStream, id: u32) -> BbsResult<()> {
+    fn handle_bulletin_read(&mut self, stream: &mut TelnetStream, id: u32) -> BbsResult<()> {
         // Load bulletin from storage
         let bulletin = self.services.bulletins.get_bulletin(id)?;
 
@@ -899,7 +761,7 @@ Location: {}
     /// Handle bulletin submission
     fn handle_bulletin_submit(
         &mut self,
-        stream: &mut TcpStream,
+        stream: &mut TelnetStream,
         title: String,
         content: String,
     ) -> BbsResult<()> {
@@ -978,7 +840,7 @@ Location: {}
     /// Handle sending a private message
     fn handle_message_send(
         &mut self,
-        stream: &mut TcpStream,
+        stream: &mut TelnetStream,
         recipient: String,
         subject: String,
         content: String,
@@ -1035,7 +897,7 @@ Location: {}
     }
 
     /// Handle reading a private message
-    fn handle_message_read(&mut self, stream: &mut TcpStream, id: u32) -> BbsResult<()> {
+    fn handle_message_read(&mut self, stream: &mut TelnetStream, id: u32) -> BbsResult<()> {
         if let Some(user) = &self.user {
             match self.services.messages.read_message(id, &user.username)? {
                 Some(message) => {
@@ -1068,7 +930,7 @@ Location: {}
     }
 
     /// Handle deleting a private message
-    fn handle_message_delete(&mut self, stream: &mut TcpStream, id: u32) -> BbsResult<()> {
+    fn handle_message_delete(&mut self, stream: &mut TelnetStream, id: u32) -> BbsResult<()> {
         if let Some(user) = &self.user {
             match self.services.messages.delete_message(id, &user.username) {
                 Ok(()) => {
@@ -1106,7 +968,7 @@ Location: {}
     // Show feature disabled message
     // fn show_feature_disabled(
     //     &mut self,
-    //     stream: &mut TcpStream,
+    //     stream: &mut TelnetStream,
     //     feature_name: &str,
     // ) -> BbsResult<()> {
     //     let width = self.config.ui.menu_width + 20;
