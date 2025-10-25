@@ -19,7 +19,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 // Phase 3: Add telnet command detection
-use telnet_negotiation::{TelnetCommand, TelnetOption, TelnetParser, TelnetSequence};
+// Phase 4: Add option negotiation
+use telnet_negotiation::{
+    OptionNegotiator, TelnetCommand, TelnetOption, TelnetParser, TelnetSequence,
+};
 
 pub struct BbsSession {
     pub config: Arc<BbsConfig>,
@@ -35,6 +38,9 @@ pub struct BbsSession {
 
     // Phase 3: Telnet command detection
     telnet_parser: TelnetParser,
+
+    // Phase 4: Option negotiation
+    option_negotiator: OptionNegotiator,
 
     // Menu instances (owned by session, can maintain state)
     menu_main: crate::menu::menu_main::MainMenu,
@@ -62,6 +68,9 @@ impl BbsSession {
 
             // Phase 3: Initialize telnet command parser
             telnet_parser: TelnetParser::new(),
+
+            // Phase 4: Initialize option negotiator
+            option_negotiator: OptionNegotiator::new(),
 
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
@@ -345,9 +354,17 @@ impl BbsSession {
                 // Phase 3: Parse telnet commands from input
                 let parse_result = self.telnet_parser.parse(&buffer[0..n]);
 
-                // Log detected telnet commands (Phase 3 testing)
-                if !parse_result.sequences.is_empty() {
-                    self.log_telnet_commands(&parse_result.sequences);
+                // Phase 4: Process negotiation commands and generate responses
+                let mut responses = Vec::new();
+                for sequence in &parse_result.sequences {
+                    if let Some(response) = self.handle_negotiation_sequence(stream, sequence)? {
+                        responses.push(response);
+                    }
+                }
+
+                // Log detected telnet commands and responses
+                if !parse_result.sequences.is_empty() || !responses.is_empty() {
+                    self.log_telnet_activity(&parse_result.sequences, &responses);
                 }
 
                 // Return the data portion as user input
@@ -358,8 +375,47 @@ impl BbsSession {
         }
     }
 
-    /// Log detected telnet commands for Phase 3 testing
-    fn log_telnet_commands(&self, sequences: &[TelnetSequence]) {
+    /// Handle a telnet negotiation sequence and generate appropriate response
+    fn handle_negotiation_sequence(
+        &mut self,
+        stream: &mut TcpStream,
+        sequence: &TelnetSequence,
+    ) -> BbsResult<Option<TelnetSequence>> {
+        match sequence {
+            TelnetSequence::Negotiation { command, option } => {
+                let result = match command {
+                    TelnetCommand::WILL => self.option_negotiator.handle_will(*option),
+                    TelnetCommand::WONT => self.option_negotiator.handle_wont(*option),
+                    TelnetCommand::DO => self.option_negotiator.handle_do(*option),
+                    TelnetCommand::DONT => self.option_negotiator.handle_dont(*option),
+                    _ => return Ok(None), // Not a negotiation command
+                };
+
+                // Send response if needed
+                if let Some(response) = &result.response {
+                    let response_bytes = response.to_bytes();
+                    stream.write_all(&response_bytes)?;
+                    stream.flush()?;
+                }
+
+                // Log state changes
+                if result.error.is_some() {
+                    eprintln!(
+                        "[TELNET] Negotiation error for {:?}: {}",
+                        option,
+                        result.error.as_ref().unwrap()
+                    );
+                }
+
+                Ok(result.response)
+            }
+            _ => Ok(None), // Not a negotiation sequence
+        }
+    }
+
+    /// Log detected telnet commands and responses
+    fn log_telnet_activity(&self, sequences: &[TelnetSequence], responses: &[TelnetSequence]) {
+        // Log incoming sequences
         for sequence in sequences {
             match sequence {
                 TelnetSequence::Command(cmd) => {
@@ -381,6 +437,22 @@ impl BbsSession {
                 }
                 TelnetSequence::EscapedData(byte) => {
                     eprintln!("[TELNET] Escaped data byte: {}", byte);
+                }
+            }
+        }
+
+        // Log outgoing responses
+        for response in responses {
+            match response {
+                TelnetSequence::Negotiation { command, option } => {
+                    let description = self.describe_negotiation(*command, *option);
+                    eprintln!(
+                        "[TELNET] Response: {:?} {:?} - {}",
+                        command, option, description
+                    );
+                }
+                _ => {
+                    eprintln!("[TELNET] Response: {:?}", response);
                 }
             }
         }

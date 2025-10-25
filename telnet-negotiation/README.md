@@ -33,10 +33,15 @@ This library implements the following RFCs:
 - [x] Integration with Moonbase BBS for command logging
 - [x] Comprehensive test coverage and demo example
 
-### Phase 4: 🔄 Basic Negotiation
-- [ ] WILL/WON'T/DO/DON'T handling
-- [ ] Simple accept/reject responses
-- [ ] Option state tracking
+### Phase 4: ✅ Option Negotiation State Machine  
+- [x] RFC 1143 Q-method state machine implementation
+- [x] WILL/WONT/DO/DONT handling with loop prevention
+- [x] Automatic response generation
+- [x] Queue system for rapid option changes
+- [x] Option acceptance policy framework
+- [x] Complete state tracking (NO/YES/WANTNO/WANTYES)
+- [x] Integration with Moonbase BBS for live testing
+- [x] Comprehensive test coverage and demo
 
 ### Phase 5: 🔄 Stream Integration
 - [ ] TelnetStream wrapper around TcpStream
@@ -79,20 +84,25 @@ telnet_stream.write(b"Hello, telnet world!")?;
 
 ## Current Status
 
-**Phase 3 Complete**: IAC sequence parsing and command detection implemented. All 23 tests passing.
+**Phase 4 Complete**: RFC 1143 Q-method option negotiation implemented. All 32 tests passing.
 
 ### Available Features:
 - Complete RFC 854 command set with byte conversion
 - 40+ standard Telnet options plus MUD/MUSH extensions  
 - Command categorization and RFC compliance checking
 - Sequence serialization for protocol messages
-- **NEW**: Stateful IAC sequence parsing from byte streams
-- **NEW**: Data/command separation with partial sequence handling
-- **NEW**: Sub-negotiation sequence support (IAC SB ... IAC SE)
-- **NEW**: Integration with Moonbase BBS for real-world testing
+- Stateful IAC sequence parsing from byte streams
+- Data/command separation with partial sequence handling
+- Sub-negotiation sequence support (IAC SB ... IAC SE)
+- **NEW**: RFC 1143 compliant option negotiation state machine
+- **NEW**: Loop-free WILL/WONT/DO/DONT handling
+- **NEW**: Queue system for rapid option changes without loops
+- **NEW**: Automatic response generation with proper state tracking
+- **NEW**: Live integration with Moonbase BBS including response sending
+- **NEW**: Option acceptance policy framework
 - Comprehensive test coverage with demo examples
 
-Ready to proceed to Phase 4: Option Negotiation State Machine.
+Ready to proceed to Phase 5: TelnetStream Integration.
 
 ## Integration
 

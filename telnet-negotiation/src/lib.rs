@@ -18,9 +18,9 @@
 //! - `stream`: TelnetStream wrapper for transparent integration
 //! - `options`: Individual option implementations (Echo, Terminal Type, etc.)
 //!
-//! ## Phase 3: Command Detection
+//! ## Phase 4: Option Negotiation State Machine
 //!
-//! This version implements IAC sequence parsing from byte streams (RFC 854).
+//! This version implements RFC 1143 Q-method negotiation state machine.
 //! Each phase incrementally adds features while maintaining backward compatibility.
 //!
 //! ### Available Features:
@@ -28,21 +28,25 @@
 //! - Standard Telnet options (Echo, Terminal Type, NAWS, etc.)
 //! - MUSH/MUD protocol extensions (MCCP, MXP, GMCP, etc.)
 //! - Command and option serialization/deserialization
-//! - **NEW**: IAC sequence detection and parsing from byte streams
-//! - **NEW**: Data/command separation with stateful parsing
-//! - **NEW**: Sub-negotiation sequence handling
+//! - IAC sequence detection and parsing from byte streams
+//! - Data/command separation with stateful parsing
+//! - Sub-negotiation sequence handling
+//! - **NEW**: RFC 1143 compliant option negotiation state machine
+//! - **NEW**: Loop-free WILL/WONT/DO/DONT handling
+//! - **NEW**: Queue system for rapid option changes
+//! - **NEW**: Automatic response generation
 //! - RFC compliance checking and categorization
 
 // Re-export main types for convenience
+pub use negotiation::{NegotiationResult, OptionNegotiator, OptionState, QueueState, Side};
 pub use parser::{ParseResult, TelnetParser};
 pub use protocol::{IAC, TelnetCommand, TelnetOption, TelnetSequence};
-// pub use negotiation::OptionNegotiator;  // Phase 4
 // pub use stream::TelnetStream;           // Phase 5
 
 // Module declarations - implemented incrementally
+pub mod negotiation; // Phase 4: ✅ Option negotiation state machine (RFC 1143)
 pub mod parser; // Phase 3: ✅ Command detection and parsing
 pub mod protocol; // Phase 2: ✅ Protocol constants and types
-// mod negotiation;    // Phase 4: Core negotiation logic
 // mod stream;         // Phase 5: TelnetStream wrapper
 // mod options;        // Phase 6: Individual option implementations
 
@@ -64,8 +68,7 @@ pub const SUPPORTED_RFCS: &[&str] = &[
     "RFC 1096 - Telnet X Display Location Option",
     "RFC 1184 - Telnet Linemode Option",
     "RFC 1571 - Telnet Environment Option",
-    // RFC 1143 will be added in Phase 4:
-    // "RFC 1143 - The Q Method of Implementing TELNET Option Negotiation",
+    "RFC 1143 - The Q Method of Implementing TELNET Option Negotiation",
 ];
 
 /// Phase 1 verification function
