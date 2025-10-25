@@ -50,10 +50,18 @@ This library implements the following RFCs:
 
 ### Phase 6: 🔄 Specific Options
 - [ ] Echo Option (RFC 857) - password input security
-- [ ] Terminal Type (RFC 1091) - client identification
+- [ ] Terminal Type (RFC 1091) - client identification  
 - [ ] Window Size (RFC 1073) - responsive layouts
 
-### Phase 7: 🔄 MUSH/MUD Extensions
+### Phase 7: 🔄 Moonbase BBS Integration Enhancement
+- [ ] Implement password masking using Echo option negotiation
+- [ ] Auto-detect terminal capabilities for enhanced UX
+- [ ] Auto terminal width detection and responsive layouts
+- [ ] Auto ANSI support detection and adaptive rendering
+- [ ] Auto color support detection and theme switching
+- [ ] Configuration options for telnet feature auto-detection
+
+### Phase 8: 🔄 MUSH/MUD Extensions
 - [ ] Sub-option negotiation framework
 - [ ] MCCP (compression), MXP (markup), GMCP (JSON data)
 - [ ] Extensible protocol plugin system
@@ -109,6 +117,40 @@ telnet_stream.write(b"Hello, telnet world!")?;
 - Comprehensive test coverage with demo examples
 
 Ready to proceed to Phase 6: Specific Option Implementations.
+
+## Phase 7 Preview: Enhanced BBS Experience
+
+After implementing the core telnet options in Phase 6, Phase 7 will demonstrate their real-world value by enhancing the Moonbase BBS experience:
+
+### Password Security (Echo Option - RFC 857)
+- **Secure Login**: Password input will be properly masked using telnet echo negotiation
+- **Industry Standard**: Follow proper telnet authentication patterns used by SSH, FTP, etc.
+
+### Smart Terminal Detection  
+- **Terminal Width**: Auto-detect client terminal width via NAWS (RFC 1073) for responsive menus
+- **ANSI Support**: Auto-detect terminal capabilities via Terminal Type (RFC 1091)
+- **Color Support**: Intelligent color theme selection based on terminal capabilities
+
+### Configuration Enhancement
+New `bbs.conf` options for auto-detection features:
+```toml
+[ui]
+# Current static settings
+box_style = "ascii"      # ascii, unicode, double
+use_colors = false       # true, false
+menu_width = 80          # fixed width
+
+# New Phase 7 auto-detection settings  
+terminal_width = "auto"  # auto, fixed number
+ansi_support = "auto"    # auto, true, false
+color_support = "auto"   # auto, true, false, adaptive
+```
+
+### User Experience Benefits
+- **Responsive Design**: Menus automatically adapt to terminal width
+- **Smart Themes**: Color themes activate only on capable terminals  
+- **Security**: Proper password masking during login/registration
+- **Compatibility**: Graceful fallback for legacy terminals
 
 ## Integration
 
