@@ -18,9 +18,9 @@
 //! - `stream`: TelnetStream wrapper for transparent integration
 //! - `options`: Individual option implementations (Echo, Terminal Type, etc.)
 //!
-//! ## Phase 4: Option Negotiation State Machine
+//! ## Phase 5: Stream Integration
 //!
-//! This version implements RFC 1143 Q-method negotiation state machine.
+//! This version implements transparent TelnetStream wrapper for seamless integration.
 //! Each phase incrementally adds features while maintaining backward compatibility.
 //!
 //! ### Available Features:
@@ -31,23 +31,26 @@
 //! - IAC sequence detection and parsing from byte streams
 //! - Data/command separation with stateful parsing
 //! - Sub-negotiation sequence handling
-//! - **NEW**: RFC 1143 compliant option negotiation state machine
-//! - **NEW**: Loop-free WILL/WONT/DO/DONT handling
-//! - **NEW**: Queue system for rapid option changes
-//! - **NEW**: Automatic response generation
+//! - RFC 1143 compliant option negotiation state machine
+//! - Loop-free WILL/WONT/DO/DONT handling
+//! - Queue system for rapid option changes
+//! - Automatic response generation
+//! - **NEW**: TelnetStream wrapper for transparent operation
+//! - **NEW**: Drop-in replacement for TcpStream with automatic telnet handling
+//! - **NEW**: Read/Write traits for backward compatibility
 //! - RFC compliance checking and categorization
 
 // Re-export main types for convenience
 pub use negotiation::{NegotiationResult, OptionNegotiator, OptionState, QueueState, Side};
 pub use parser::{ParseResult, TelnetParser};
 pub use protocol::{IAC, TelnetCommand, TelnetOption, TelnetSequence};
-// pub use stream::TelnetStream;           // Phase 5
+pub use stream::TelnetStream; // Phase 5: ✅ Stream Integration
 
 // Module declarations - implemented incrementally
 pub mod negotiation; // Phase 4: ✅ Option negotiation state machine (RFC 1143)
 pub mod parser; // Phase 3: ✅ Command detection and parsing
 pub mod protocol; // Phase 2: ✅ Protocol constants and types
-// mod stream;         // Phase 5: TelnetStream wrapper
+pub mod stream; // Phase 5: ✅ TelnetStream wrapper
 // mod options;        // Phase 6: Individual option implementations
 
 /// Library version information

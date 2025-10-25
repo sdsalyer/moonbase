@@ -43,10 +43,10 @@ This library implements the following RFCs:
 - [x] Integration with Moonbase BBS for live testing
 - [x] Comprehensive test coverage and demo
 
-### Phase 5: 🔄 Stream Integration
-- [ ] TelnetStream wrapper around TcpStream
-- [ ] Integration with existing applications
-- [ ] Backward compatibility guarantees
+### Phase 5: ✅ Stream Integration
+- [x] TelnetStream wrapper around TcpStream
+- [x] Integration with existing applications
+- [x] Backward compatibility guarantees
 
 ### Phase 6: 🔄 Specific Options
 - [ ] Echo Option (RFC 857) - password input security
@@ -68,13 +68,14 @@ This library is specifically designed to support advanced MUD/MUSH protocols:
 - **MSDP**: MUD Server Data Protocol (key-value data)
 - **ATCP**: Achaea Telnet Client Protocol (game-specific)
 
-## Usage (Future)
+## Usage
 
 ```rust
 use telnet_negotiation::TelnetStream;
 use std::net::TcpStream;
+use std::io::Write;
 
-// Phase 5: This API doesn't exist yet
+// Phase 5: TelnetStream is now available!
 let stream = TcpStream::connect("127.0.0.1:2323")?;
 let mut telnet_stream = TelnetStream::new(stream);
 
@@ -84,7 +85,7 @@ telnet_stream.write(b"Hello, telnet world!")?;
 
 ## Current Status
 
-**Phase 4 Complete**: RFC 1143 Q-method option negotiation implemented. All 32 tests passing.
+**Phase 5 Complete**: TelnetStream integration implemented. All 35 tests passing.
 
 ### Available Features:
 - Complete RFC 854 command set with byte conversion
@@ -94,15 +95,20 @@ telnet_stream.write(b"Hello, telnet world!")?;
 - Stateful IAC sequence parsing from byte streams
 - Data/command separation with partial sequence handling
 - Sub-negotiation sequence support (IAC SB ... IAC SE)
-- **NEW**: RFC 1143 compliant option negotiation state machine
-- **NEW**: Loop-free WILL/WONT/DO/DONT handling
-- **NEW**: Queue system for rapid option changes without loops
-- **NEW**: Automatic response generation with proper state tracking
-- **NEW**: Live integration with Moonbase BBS including response sending
-- **NEW**: Option acceptance policy framework
+- RFC 1143 compliant option negotiation state machine
+- Loop-free WILL/WONT/DO/DONT handling
+- Queue system for rapid option changes without loops
+- Automatic response generation with proper state tracking
+- Live integration with Moonbase BBS including response sending
+- Option acceptance policy framework
+- **NEW**: TelnetStream wrapper for transparent telnet protocol handling
+- **NEW**: Drop-in replacement for TcpStream with Read/Write traits
+- **NEW**: Automatic IAC byte escaping in outgoing data
+- **NEW**: Clean data separation - telnet commands filtered from application data
+- **NEW**: Background option negotiation without application intervention
 - Comprehensive test coverage with demo examples
 
-Ready to proceed to Phase 5: TelnetStream Integration.
+Ready to proceed to Phase 6: Specific Option Implementations.
 
 ## Integration
 
