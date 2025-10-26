@@ -176,7 +176,7 @@ impl TelnetCommand {
 /// These options can be negotiated between client and server to enable
 /// various protocol features. Each option has specific behavior defined
 /// in its respective RFC.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8)]
 #[allow(non_camel_case_types)] // Protocol constants traditionally use SCREAMING_SNAKE_CASE
 pub enum TelnetOption {

@@ -48,10 +48,12 @@ This library implements the following RFCs:
 - [x] Integration with existing applications
 - [x] Backward compatibility guarantees
 
-### Phase 6: 🔄 Specific Options
-- [ ] Echo Option (RFC 857) - password input security
-- [ ] Terminal Type (RFC 1091) - client identification  
-- [ ] Window Size (RFC 1073) - responsive layouts
+### Phase 6: ✅ Specific Options (Complete)
+- [x] Echo Option (RFC 857) - password input security
+- [x] Terminal Type (RFC 1091) - client identification  
+- [x] NAWS - Window Size (RFC 1073) - responsive layouts
+- [x] Sub-negotiation framework for option data exchange
+- [x] High-level API for BBS integration
 
 ### Phase 7: 🔄 Moonbase BBS Integration Enhancement
 - [ ] Implement password masking using Echo option negotiation
@@ -62,8 +64,8 @@ This library implements the following RFCs:
 - [ ] Configuration options for telnet feature auto-detection
 
 ### Phase 8: 🔄 MUSH/MUD Extensions
-- [ ] Sub-option negotiation framework
-- [ ] MCCP (compression), MXP (markup), GMCP (JSON data)
+- [ ] Advanced sub-negotiation framework for custom protocols
+- [ ] MCCP (compression), MXP (markup), GMCP (JSON data)  
 - [ ] Extensible protocol plugin system
 
 ## MUSH/MUD Protocol Support
@@ -93,7 +95,7 @@ telnet_stream.write(b"Hello, telnet world!")?;
 
 ## Current Status
 
-**Phase 5 Complete**: TelnetStream integration implemented. All 35 tests passing.
+**Phase 6 Complete**: Specific telnet options implemented. All 64 tests passing.
 
 ### Available Features:
 - Complete RFC 854 command set with byte conversion
@@ -109,14 +111,88 @@ telnet_stream.write(b"Hello, telnet world!")?;
 - Automatic response generation with proper state tracking
 - Live integration with Moonbase BBS including response sending
 - Option acceptance policy framework
-- **NEW**: TelnetStream wrapper for transparent telnet protocol handling
-- **NEW**: Drop-in replacement for TcpStream with Read/Write traits
-- **NEW**: Automatic IAC byte escaping in outgoing data
-- **NEW**: Clean data separation - telnet commands filtered from application data
-- **NEW**: Background option negotiation without application intervention
+- **Phase 5**: TelnetStream wrapper for transparent telnet protocol handling
+- **Phase 5**: Drop-in replacement for TcpStream with Read/Write traits
+- **Phase 5**: Automatic IAC byte escaping in outgoing data
+- **Phase 5**: Clean data separation - telnet commands filtered from application data
+- **Phase 5**: Background option negotiation without application intervention
+- **NEW Phase 6**: Complete Echo, Terminal Type, and NAWS option implementations
+- **NEW Phase 6**: Sub-negotiation framework with automatic routing
+- **NEW Phase 6**: Option handler registry for extensible protocol support
+- **NEW Phase 6**: High-level API methods for common BBS operations
+- **NEW Phase 6**: Terminal capability detection and window size negotiation
 - Comprehensive test coverage with demo examples
 
-Ready to proceed to Phase 6: Specific Option Implementations.
+Ready to proceed to Phase 7: Enhanced BBS Experience.
+
+## Phase 6 Features: Specific Telnet Options
+
+Phase 6 delivers the core telnet options needed for modern BBS functionality:
+
+### Echo Option (RFC 857) 
+```rust
+// Secure password input
+stream.request_echo_off()?;
+let password = read_password(&mut stream)?;
+stream.request_echo_on()?;
+```
+
+### Terminal Type Option (RFC 1091)
+```rust
+// Adaptive rendering based on terminal capabilities  
+let caps = stream.get_terminal_capabilities();
+if caps.supports_ansi && caps.supports_color {
+    // Use ANSI colors and formatting
+}
+```
+
+### NAWS - Window Size Option (RFC 1073)  
+```rust
+// Responsive layout based on terminal size
+if let Some(width) = stream.request_window_size()?.map(|s| s.width) {
+    let menu_width = std::cmp::min(width as usize, 132);
+    // Adapt menu layout to terminal width
+}
+```
+
+### High-level Integration API
+- `request_echo_off()` / `request_echo_on()` - Password security
+- `request_terminal_type()` - Capability detection
+- `request_window_size()` - Responsive layout support  
+- `get_terminal_capabilities()` - Unified capability query
+- Extensible option handler registry for custom protocols
+
+### Usage Examples
+
+#### Secure Password Input
+```rust
+use telnet_negotiation::TelnetStream;
+use std::net::TcpStream;
+
+let tcp = TcpStream::connect("127.0.0.1:2323")?;
+let mut stream = TelnetStream::new(tcp);
+
+// Disable echo for secure password input
+stream.request_echo_off()?;
+let password = read_password_input(&mut stream)?;
+stream.request_echo_on()?; // Restore normal echoing
+```
+
+#### Adaptive Terminal Features
+```rust
+let caps = stream.get_terminal_capabilities();
+
+if caps.supports_color {
+    // Use ANSI colors for enhanced display
+    write!(stream, "\x1b[32mGreen text\x1b[0m")?;
+}
+
+if let Some(width) = caps.width {
+    // Adapt layout to terminal width
+    let menu_cols = std::cmp::min(width as usize, 132);
+    format_menu_for_width(menu_cols);
+}
+```
 
 ## Phase 7 Preview: Enhanced BBS Experience
 

@@ -1,13 +1,13 @@
 [package]
 name = "telnet-negotiation"
-version = "0.1.0"
+version = "0.6.0"
 edition = "2024"
 authors = ["b3rts <dev@b3rts.dev>"]
-description = "A Rust library for Telnet protocol negotiation (RFC 854, RFC 1143)"
+description = "A Rust library for Telnet protocol negotiation with Echo, Terminal Type, and NAWS options"
 license = "GPL-3.0"
 homepage = "https://github.com/sdsalyer/moonbase"
 repository = "https://github.com/sdsalyer/moonbase"
-keywords = ["telnet", "negotiation", "protocol", "mud", "bbs"]
+keywords = ["telnet", "negotiation", "protocol", "bbs", "terminal"]
 categories = ["network-programming"]
 
 [lib]
@@ -15,7 +15,7 @@ name = "telnet_negotiation"
 path = "src/lib.rs"
 
 [dependencies]
-# No dependencies for Phase 1 - we'll add them incrementally as needed
+# Pure Rust implementation with no external dependencies
 
 [dev-dependencies]
-# We'll add test dependencies later when we implement functionality
+# Testing utilities for Phase 6 comprehensive test suite

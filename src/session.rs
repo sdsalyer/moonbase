@@ -344,8 +344,6 @@ impl BbsSession {
         }
     }
 
-
-
     /// Initialize terminal state
     fn initialize_terminal(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;

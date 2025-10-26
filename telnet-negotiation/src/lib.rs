@@ -18,40 +18,46 @@
 //! - `stream`: TelnetStream wrapper for transparent integration
 //! - `options`: Individual option implementations (Echo, Terminal Type, etc.)
 //!
-//! ## Phase 5: Stream Integration
+//! ## Phase 6: Specific Telnet Options  
 //!
-//! This version implements transparent TelnetStream wrapper for seamless integration.
-//! Each phase incrementally adds features while maintaining backward compatibility.
+//! This version implements core telnet options with complete sub-negotiation support
+//! and high-level API for BBS integration. Each phase incrementally adds features
+//! while maintaining backward compatibility.
 //!
 //! ### Available Features:
 //! - Complete Telnet command set (IAC, WILL, WONT, DO, DONT, etc.)
-//! - Standard Telnet options (Echo, Terminal Type, NAWS, etc.)
+//! - **Phase 6**: Echo Option (RFC 857) for secure password input
+//! - **Phase 6**: Terminal Type Option (RFC 1091) for capability detection
+//! - **Phase 6**: NAWS Option (RFC 1073) for window size negotiation
+//! - **Phase 6**: Sub-negotiation framework with automatic routing
+//! - **Phase 6**: High-level API methods for common BBS operations
 //! - MUSH/MUD protocol extensions (MCCP, MXP, GMCP, etc.)
 //! - Command and option serialization/deserialization
 //! - IAC sequence detection and parsing from byte streams
 //! - Data/command separation with stateful parsing
-//! - Sub-negotiation sequence handling
+//! - Sub-negotiation sequence handling with option-specific routing
 //! - RFC 1143 compliant option negotiation state machine
 //! - Loop-free WILL/WONT/DO/DONT handling
 //! - Queue system for rapid option changes
-//! - Automatic response generation
-//! - **NEW**: TelnetStream wrapper for transparent operation
-//! - **NEW**: Drop-in replacement for TcpStream with automatic telnet handling
-//! - **NEW**: Read/Write traits for backward compatibility
+//! - Automatic response generation and transmission
+//! - TelnetStream wrapper for transparent operation
+//! - Drop-in replacement for TcpStream with automatic telnet handling
+//! - Read/Write traits for backward compatibility
 //! - RFC compliance checking and categorization
 
 // Re-export main types for convenience
 pub use negotiation::{NegotiationResult, OptionNegotiator, OptionState, QueueState, Side};
+pub use options::{EchoOption, EchoState, NawsOption, TerminalTypeOption, WindowSize};
 pub use parser::{ParseResult, TelnetParser};
 pub use protocol::{IAC, TelnetCommand, TelnetOption, TelnetSequence};
-pub use stream::TelnetStream; // Phase 5: ✅ Stream Integration
+pub use stream::{ColorDepth, TelnetStream, TerminalCapabilities}; // Phase 6: ✅ Enhanced Stream + Options
 
 // Module declarations - implemented incrementally
 pub mod negotiation; // Phase 4: ✅ Option negotiation state machine (RFC 1143)
+pub mod options; // Phase 6: ✅ Individual option implementations
 pub mod parser; // Phase 3: ✅ Command detection and parsing
 pub mod protocol; // Phase 2: ✅ Protocol constants and types
 pub mod stream; // Phase 5: ✅ TelnetStream wrapper
-// mod options;        // Phase 6: Individual option implementations
 
 /// Library version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -98,7 +104,7 @@ mod tests {
     #[test]
     fn test_version_available() {
         assert!(!VERSION.is_empty());
-        assert_eq!(VERSION, "0.1.0");
+        assert_eq!(VERSION, "0.6.0");
     }
 
     #[test]
