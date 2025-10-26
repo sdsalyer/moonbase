@@ -1,28 +1,27 @@
-use moonbase::config::{AutoDetectOption, BbsConfig, TerminalWidthConfig};
+use moonbase::config::{AutoDetectOption, BbsConfig, WidthMode};
 use telnet_negotiation::{ColorDepth, TerminalCapabilities};
 
 mod common;
 
 #[test]
 fn test_config_parsing_with_phase7_options() {
-    let config_content = r#"
+    let _config_content = r#"
 [server]
 telnet_port = 2323
 
 [ui]
 box_style = "ascii"
-menu_width = 80
 use_colors = false
-terminal_width = "120"
+width_mode = "fixed"
+width_value = 120
 ansi_support = "true"
 color_support = "false"
 adaptive_layout = true
-fallback_width = 100
 "#;
-    
+
     let result = BbsConfig::load_from_file("/dev/null"); // Will use default, then we parse
     assert!(result.is_ok());
-    
+
     // Test that we can create a config file content and verify it includes our new options
     // We'll test the enums and structs directly instead
 }
@@ -30,7 +29,7 @@ fallback_width = 100
 #[test]
 fn test_terminal_capabilities_default() {
     let caps = TerminalCapabilities::default();
-    
+
     assert_eq!(caps.width, None);
     assert_eq!(caps.height, None);
     assert_eq!(caps.terminal_type, None);
@@ -40,21 +39,31 @@ fn test_terminal_capabilities_default() {
 }
 
 #[test]
-fn test_terminal_width_config_enum() {
-    // Test TerminalWidthConfig enum variants
-    let auto_config = TerminalWidthConfig::Auto;
-    let fixed_config = TerminalWidthConfig::Fixed(120);
-    
+fn test_width_mode_enum() {
+    // Test WidthMode enum variants
+    let auto_mode = WidthMode::Auto;
+    let fixed_mode = WidthMode::Fixed;
+
     // Verify enum works as expected
-    match auto_config {
-        TerminalWidthConfig::Auto => assert!(true),
-        TerminalWidthConfig::Fixed(_) => assert!(false),
-    }
+    assert!(matches!(auto_mode, WidthMode::Auto));
+    assert!(matches!(fixed_mode, WidthMode::Fixed));
+}
+
+#[test]
+fn test_clean_width_configuration() {
+    let config = BbsConfig::default();
     
-    match fixed_config {
-        TerminalWidthConfig::Auto => assert!(false),
-        TerminalWidthConfig::Fixed(width) => assert_eq!(width, 120),
-    }
+    // Test clean width configuration
+    assert!(matches!(config.ui.width_mode, WidthMode::Auto));
+    assert_eq!(config.ui.width_value, 80);
+    
+    // Verify no redundant fields
+    // This test ensures we eliminated menu_width and fallback_width
+    let config_content = format!("{:?}", config);
+    assert!(!config_content.contains("menu_width"));
+    assert!(!config_content.contains("fallback_width")); 
+    assert!(config_content.contains("width_mode"));
+    assert!(config_content.contains("width_value"));
 }
 
 #[test]
@@ -63,7 +72,7 @@ fn test_auto_detect_option_enum() {
     let auto_option = AutoDetectOption::Auto;
     let enabled_option = AutoDetectOption::Enabled;
     let disabled_option = AutoDetectOption::Disabled;
-    
+
     // Verify enums work as expected
     assert!(matches!(auto_option, AutoDetectOption::Auto));
     assert!(matches!(enabled_option, AutoDetectOption::Enabled));
@@ -73,11 +82,11 @@ fn test_auto_detect_option_enum() {
 #[test]
 fn test_phase7_config_defaults() {
     let config = BbsConfig::default();
-    
+
     // Verify Phase 7 options use correct defaults
-    assert!(matches!(config.ui.terminal_width, TerminalWidthConfig::Auto));
+    assert!(matches!(config.ui.width_mode, WidthMode::Auto));
+    assert_eq!(config.ui.width_value, 80);
     assert!(matches!(config.ui.ansi_support, AutoDetectOption::Auto));
     assert!(matches!(config.ui.color_support, AutoDetectOption::Auto));
     assert!(config.ui.adaptive_layout);
-    assert_eq!(config.ui.fallback_width, 80);
 }

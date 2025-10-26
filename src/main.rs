@@ -233,7 +233,8 @@ fn print_startup_banner(config: &BbsConfig) -> BbsResult<()> {
         "".to_string(),
         "UI Settings:".to_string(),
         format!("  Box Style: {:?}", config.ui.box_style),
-        format!("  Menu Width: {}", config.ui.menu_width),
+        format!("  Width Mode: {:?}", config.ui.width_mode),
+        format!("  Width Value: {}", config.ui.width_value),
         format!(
             "  Colors: {}",
             if config.ui.use_colors {
@@ -264,7 +265,7 @@ fn show_rejection(mut stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()
         &mut stream,
         "SERVER BUSY",
         message,
-        config.ui.menu_width,
+        config.ui.width_value,
         Some(crossterm::style::Color::Red),
     )?;
 

@@ -365,8 +365,8 @@ impl BulletinMenu {
         //     "the actual bulletin text from the storage system.]",
         // ];
 
-        let width = &data.config.ui.menu_width;
-        for line in bulletin.get_content_lines(*width - 4) {
+        let width = data.effective_width();
+        for line in bulletin.get_content_lines(width - 4) {
             items.push(MenuItem::info(&line));
         }
 

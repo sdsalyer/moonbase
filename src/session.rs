@@ -63,7 +63,7 @@ impl BbsSession {
 
             // Phase 7: Initialize terminal capabilities
             terminal_capabilities: TerminalCapabilities::default(),
-            effective_width: config.ui.menu_width,
+            effective_width: config.ui.width_value,
 
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
@@ -89,6 +89,11 @@ impl BbsSession {
             Some(u) => u.username.clone(),
             None => "Anonymous".to_string(),
         }
+    }
+
+    /// Get the effective terminal width for rendering
+    pub fn effective_width(&self) -> usize {
+        self.effective_width
     }
 
     /// Run the BBS session with the provided stream
@@ -129,14 +134,18 @@ impl BbsSession {
         self.terminal_capabilities = stream.get_terminal_capabilities();
 
         // Request terminal type if configured for auto-detection
-        if matches!(self.config.ui.ansi_support, crate::config::AutoDetectOption::Auto) 
-            || matches!(self.config.ui.color_support, crate::config::AutoDetectOption::Auto) 
-        {
+        if matches!(
+            self.config.ui.ansi_support,
+            crate::config::AutoDetectOption::Auto
+        ) || matches!(
+            self.config.ui.color_support,
+            crate::config::AutoDetectOption::Auto
+        ) {
             let _ = stream.request_terminal_type()?;
         }
 
         // Request window size if configured for auto-detection
-        if matches!(self.config.ui.terminal_width, crate::config::TerminalWidthConfig::Auto) {
+        if matches!(self.config.ui.width_mode, crate::config::WidthMode::Auto) {
             let _ = stream.request_window_size()?;
         }
 
@@ -159,24 +168,22 @@ impl BbsSession {
 
     /// Calculate the effective terminal width based on configuration and detection
     fn calculate_effective_width(&self) -> usize {
-        match &self.config.ui.terminal_width {
-            crate::config::TerminalWidthConfig::Auto => {
+        match &self.config.ui.width_mode {
+            crate::config::WidthMode::Auto => {
                 if let Some(detected_width) = self.terminal_capabilities.width {
                     detected_width as usize
                 } else {
-                    self.config.ui.fallback_width
+                    self.config.ui.width_value
                 }
             }
-            crate::config::TerminalWidthConfig::Fixed(width) => *width,
+            crate::config::WidthMode::Fixed => self.config.ui.width_value,
         }
     }
 
     /// Resolve color support based on configuration and terminal detection
     fn resolve_color_support(&self) -> bool {
         match &self.config.ui.color_support {
-            crate::config::AutoDetectOption::Auto => {
-                self.terminal_capabilities.supports_color
-            }
+            crate::config::AutoDetectOption::Auto => self.terminal_capabilities.supports_color,
             crate::config::AutoDetectOption::Enabled => true,
             crate::config::AutoDetectOption::Disabled => false,
         }
@@ -185,9 +192,7 @@ impl BbsSession {
     /// Resolve ANSI support and appropriate box style
     fn resolve_box_style(&self) -> BoxStyle {
         let ansi_supported = match &self.config.ui.ansi_support {
-            crate::config::AutoDetectOption::Auto => {
-                self.terminal_capabilities.supports_ansi
-            }
+            crate::config::AutoDetectOption::Auto => self.terminal_capabilities.supports_ansi,
             crate::config::AutoDetectOption::Enabled => true,
             crate::config::AutoDetectOption::Disabled => false,
         };
@@ -204,7 +209,7 @@ impl BbsSession {
     /// Detect ANSI support from terminal type string (helper for negotiation)
     fn detect_ansi_support(terminal_type: &str) -> bool {
         let terminal_lower = terminal_type.to_lowercase();
-        terminal_lower.contains("xterm") 
+        terminal_lower.contains("xterm")
             || terminal_lower.contains("ansi")
             || terminal_lower.contains("vt100")
             || terminal_lower.contains("linux")
@@ -456,10 +461,14 @@ impl BbsSession {
     }
 
     /// Phase 7: Secure password input with echo control
-    fn secure_password_input(&mut self, stream: &mut TelnetStream, prompt: &str) -> BbsResult<String> {
+    fn secure_password_input(
+        &mut self,
+        stream: &mut TelnetStream,
+        prompt: &str,
+    ) -> BbsResult<String> {
         // Disable echo for password security
         let _ = stream.request_echo_off()?;
-        
+
         // Display prompt
         stream.queue(Print(prompt))?;
         stream.flush()?;
@@ -593,7 +602,7 @@ Location: {}
             return Ok(());
         }
 
-            let password = self.secure_password_input(stream, "Password: ")?;
+        let password = self.secure_password_input(stream, "Password: ")?;
         if password.is_empty() {
             self.show_message_with_stream(
                 stream,
@@ -768,7 +777,7 @@ Location: {}
         }
 
         if !username.is_empty() {
-        let password = self.secure_password_input(stream, "Password: ")?;
+            let password = self.secure_password_input(stream, "Password: ")?;
 
             // Try to authenticate
             match self.services.users.authenticate(&username, &password)? {
