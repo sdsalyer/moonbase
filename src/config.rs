@@ -5,6 +5,19 @@ use std::fs;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
+pub enum TerminalWidthConfig {
+    Auto,
+    Fixed(usize),
+}
+
+#[derive(Debug, Clone)]
+pub enum AutoDetectOption {
+    Auto,
+    Enabled,
+    Disabled,
+}
+
+#[derive(Debug, Clone)]
 pub struct BbsConfig {
     pub server: ServerConfig,
     pub bbs: BbsInfo,
@@ -53,6 +66,12 @@ pub struct UIConfig {
     pub menu_width: usize,
     pub use_colors: bool,
     pub welcome_pause_ms: u64,
+    // Phase 7: New auto-detection options
+    pub terminal_width: TerminalWidthConfig,
+    pub ansi_support: AutoDetectOption,
+    pub color_support: AutoDetectOption,
+    pub adaptive_layout: bool,
+    pub fallback_width: usize,
 }
 
 impl Default for BbsConfig {
@@ -89,6 +108,12 @@ impl Default for BbsConfig {
                 menu_width: 80,
                 use_colors: false,
                 welcome_pause_ms: 1500,
+                // Phase 7: New auto-detection defaults
+                terminal_width: TerminalWidthConfig::Auto,
+                ansi_support: AutoDetectOption::Auto,
+                color_support: AutoDetectOption::Auto,
+                adaptive_layout: true,
+                fallback_width: 80,
             },
         }
     }
@@ -194,6 +219,43 @@ impl BbsConfig {
             }
             "welcome_pause_ms" => {
                 self.ui.welcome_pause_ms = value
+                    .parse()
+                    .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
+            }
+            // Phase 7: New configuration options
+            "terminal_width" => {
+                self.ui.terminal_width = if value == "auto" {
+                    TerminalWidthConfig::Auto
+                } else {
+                    let width: usize = value
+                        .parse()
+                        .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
+                    TerminalWidthConfig::Fixed(width)
+                };
+            }
+            "ansi_support" => {
+                self.ui.ansi_support = match value {
+                    "auto" => AutoDetectOption::Auto,
+                    "true" => AutoDetectOption::Enabled,
+                    "false" => AutoDetectOption::Disabled,
+                    _ => return Err(ConfigError::InvalidValue(key.to_string(), value.to_string())),
+                };
+            }
+            "color_support" => {
+                self.ui.color_support = match value {
+                    "auto" => AutoDetectOption::Auto,
+                    "true" => AutoDetectOption::Enabled,
+                    "false" => AutoDetectOption::Disabled,
+                    _ => return Err(ConfigError::InvalidValue(key.to_string(), value.to_string())),
+                };
+            }
+            "adaptive_layout" => {
+                self.ui.adaptive_layout = value
+                    .parse()
+                    .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
+            }
+            "fallback_width" => {
+                self.ui.fallback_width = value
                     .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
             }
@@ -308,6 +370,13 @@ box_style = "{}"
 menu_width = {}
 use_colors = {}
 welcome_pause_ms = {}
+
+# Phase 7: Terminal auto-detection options
+terminal_width = "{}"      # "auto" or specific number
+ansi_support = "{}"        # "auto", "true", "false"  
+color_support = "{}"       # "auto", "true", "false"
+adaptive_layout = {}       # Enable responsive design
+fallback_width = {}        # Fallback when auto-detection fails
 "#,
             self.server.telnet_port,
             self.server
@@ -338,6 +407,22 @@ welcome_pause_ms = {}
             self.ui.menu_width,
             self.ui.use_colors,
             self.ui.welcome_pause_ms,
+            match &self.ui.terminal_width {
+                TerminalWidthConfig::Auto => "auto",
+                TerminalWidthConfig::Fixed(_) => &self.ui.menu_width.to_string(),
+            },
+            match &self.ui.ansi_support {
+                AutoDetectOption::Auto => "auto",
+                AutoDetectOption::Enabled => "true",
+                AutoDetectOption::Disabled => "false",
+            },
+            match &self.ui.color_support {
+                AutoDetectOption::Auto => "auto",
+                AutoDetectOption::Enabled => "true",
+                AutoDetectOption::Disabled => "false",
+            },
+            self.ui.adaptive_layout,
+            self.ui.fallback_width,
         )
     }
 }

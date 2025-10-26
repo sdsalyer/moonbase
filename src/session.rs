@@ -18,7 +18,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 // Phase 5: Use TelnetStream for transparent telnet handling
-use telnet_negotiation::TelnetStream;
+// Phase 7: Import terminal capabilities for adaptive UI
+use telnet_negotiation::{TelnetStream, TerminalCapabilities};
 
 pub struct BbsSession {
     pub config: Arc<BbsConfig>,
@@ -31,6 +32,10 @@ pub struct BbsSession {
     pub services: Arc<crate::services::CoreServices>,
     box_renderer: BoxRenderer,
     login_attempts: u8,
+
+    // Phase 7: Terminal capabilities for adaptive UI
+    terminal_capabilities: TerminalCapabilities,
+    effective_width: usize,
 
     // Menu instances (owned by session, can maintain state)
     menu_main: crate::menu::menu_main::MainMenu,
@@ -45,7 +50,7 @@ impl BbsSession {
         let box_renderer = BoxRenderer::new(BoxStyle::Ascii, config.ui.use_colors);
 
         Self {
-            config,
+            config: config.clone(),
             user: None,
             menu_current: Menu::Main,
             user_stats: None,
@@ -55,6 +60,10 @@ impl BbsSession {
             services,
             box_renderer,
             login_attempts: 0,
+
+            // Phase 7: Initialize terminal capabilities
+            terminal_capabilities: TerminalCapabilities::default(),
+            effective_width: config.ui.menu_width,
 
             menu_main: crate::menu::menu_main::MainMenu::new(),
             menu_bulletin: crate::menu::menu_bulletin::BulletinMenu::new(),
@@ -87,6 +96,9 @@ impl BbsSession {
         // Set initial timeout
         stream.set_read_timeout(Some(self.config.timeouts.connection_timeout))?;
 
+        // Phase 7: Negotiate terminal capabilities
+        self.negotiate_terminal_capabilities(&mut stream)?;
+
         // Initialize terminal
         self.initialize_terminal(&mut stream)?;
 
@@ -109,6 +121,105 @@ impl BbsSession {
         }
 
         Ok(())
+    }
+
+    /// Phase 7: Negotiate terminal capabilities for adaptive UI
+    fn negotiate_terminal_capabilities(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
+        // Get capabilities from TelnetStream
+        self.terminal_capabilities = stream.get_terminal_capabilities();
+
+        // Request terminal type if configured for auto-detection
+        if matches!(self.config.ui.ansi_support, crate::config::AutoDetectOption::Auto) 
+            || matches!(self.config.ui.color_support, crate::config::AutoDetectOption::Auto) 
+        {
+            let _ = stream.request_terminal_type()?;
+        }
+
+        // Request window size if configured for auto-detection
+        if matches!(self.config.ui.terminal_width, crate::config::TerminalWidthConfig::Auto) {
+            let _ = stream.request_window_size()?;
+        }
+
+        // Give a moment for negotiation to complete
+        std::thread::sleep(Duration::from_millis(100));
+
+        // Update capabilities after negotiation attempts
+        self.terminal_capabilities = stream.get_terminal_capabilities();
+
+        // Calculate effective width
+        self.effective_width = self.calculate_effective_width();
+
+        // Update box renderer with detected capabilities
+        let supports_color = self.resolve_color_support();
+        let box_style = self.resolve_box_style();
+        self.box_renderer = BoxRenderer::new(box_style, supports_color);
+
+        Ok(())
+    }
+
+    /// Calculate the effective terminal width based on configuration and detection
+    fn calculate_effective_width(&self) -> usize {
+        match &self.config.ui.terminal_width {
+            crate::config::TerminalWidthConfig::Auto => {
+                if let Some(detected_width) = self.terminal_capabilities.width {
+                    detected_width as usize
+                } else {
+                    self.config.ui.fallback_width
+                }
+            }
+            crate::config::TerminalWidthConfig::Fixed(width) => *width,
+        }
+    }
+
+    /// Resolve color support based on configuration and terminal detection
+    fn resolve_color_support(&self) -> bool {
+        match &self.config.ui.color_support {
+            crate::config::AutoDetectOption::Auto => {
+                self.terminal_capabilities.supports_color
+            }
+            crate::config::AutoDetectOption::Enabled => true,
+            crate::config::AutoDetectOption::Disabled => false,
+        }
+    }
+
+    /// Resolve ANSI support and appropriate box style
+    fn resolve_box_style(&self) -> BoxStyle {
+        let ansi_supported = match &self.config.ui.ansi_support {
+            crate::config::AutoDetectOption::Auto => {
+                self.terminal_capabilities.supports_ansi
+            }
+            crate::config::AutoDetectOption::Enabled => true,
+            crate::config::AutoDetectOption::Disabled => false,
+        };
+
+        if ansi_supported {
+            // Use configured style if ANSI is supported
+            self.config.ui.box_style
+        } else {
+            // Fall back to ASCII for maximum compatibility
+            BoxStyle::Ascii
+        }
+    }
+
+    /// Detect ANSI support from terminal type string (helper for negotiation)
+    fn detect_ansi_support(terminal_type: &str) -> bool {
+        let terminal_lower = terminal_type.to_lowercase();
+        terminal_lower.contains("xterm") 
+            || terminal_lower.contains("ansi")
+            || terminal_lower.contains("vt100")
+            || terminal_lower.contains("linux")
+            || terminal_lower.contains("screen")
+            || terminal_lower.contains("tmux")
+    }
+
+    /// Detect color support from terminal type string (helper for negotiation)
+    fn detect_color_support(terminal_type: &str) -> bool {
+        let terminal_lower = terminal_type.to_lowercase();
+        terminal_lower.contains("xterm")
+            || terminal_lower.contains("color")
+            || terminal_lower.contains("256")
+            || terminal_lower.contains("screen")
+            || terminal_lower.contains("tmux")
     }
 
     /// Get the current menu instance
@@ -344,6 +455,35 @@ impl BbsSession {
         }
     }
 
+    /// Phase 7: Secure password input with echo control
+    fn secure_password_input(&mut self, stream: &mut TelnetStream, prompt: &str) -> BbsResult<String> {
+        // Disable echo for password security
+        let _ = stream.request_echo_off()?;
+        
+        // Display prompt
+        stream.queue(Print(prompt))?;
+        stream.flush()?;
+
+        let mut buffer = [0; 1024];
+        let result = match stream.read(&mut buffer) {
+            Ok(0) => Err(BbsError::ClientDisconnected),
+            Ok(n) => {
+                let input = String::from_utf8_lossy(&buffer[0..n]);
+                Ok(input.trim().to_string())
+            }
+            Err(e) => Err(BbsError::from(e)),
+        };
+
+        // Re-enable echo after password input
+        let _ = stream.request_echo_on()?;
+
+        // Add a newline since echo was off
+        stream.queue(Print("\n"))?;
+        stream.flush()?;
+
+        result
+    }
+
     /// Initialize terminal state
     fn initialize_terminal(&mut self, stream: &mut TelnetStream) -> BbsResult<()> {
         stream.queue(Clear(ClearType::All))?;
@@ -376,7 +516,7 @@ Location: {}
             stream,
             "WELCOME",
             &welcome_msg,
-            self.config.ui.menu_width,
+            self.effective_width,
             Some(Color::Magenta),
         )?;
 
@@ -399,7 +539,7 @@ Location: {}
             stream,
             "LOGIN / REGISTER",
             instructions,
-            self.config.ui.menu_width,
+            self.effective_width,
             Some(Color::Cyan),
         )?;
 
@@ -438,7 +578,7 @@ Location: {}
             stream,
             "USER LOGIN",
             "Enter your credentials:",
-            self.config.ui.menu_width,
+            self.effective_width,
             Some(Color::Cyan),
         )?;
 
@@ -453,7 +593,7 @@ Location: {}
             return Ok(());
         }
 
-        let password = self.get_input(stream, "Password: ")?;
+            let password = self.secure_password_input(stream, "Password: ")?;
         if password.is_empty() {
             self.show_message_with_stream(
                 stream,
@@ -505,7 +645,7 @@ Location: {}
             stream,
             "USER REGISTRATION",
             &instructions,
-            self.config.ui.menu_width,
+            self.effective_width,
             Some(Color::Cyan),
         )?;
 
@@ -522,7 +662,7 @@ Location: {}
         }
 
         // Get password
-        let password = self.get_input(stream, "Password (min 4 chars): ")?;
+        let password = self.secure_password_input(stream, "Password (min 4 chars): ")?;
         if password.is_empty() {
             self.show_message_with_stream(
                 stream,
@@ -584,7 +724,7 @@ Location: {}
             stream,
             "LOGIN REQUIRED",
             message,
-            self.config.ui.menu_width,
+            self.effective_width,
             Some(Color::Yellow),
         )?;
 
@@ -628,7 +768,7 @@ Location: {}
         }
 
         if !username.is_empty() {
-            let password = self.get_input(stream, "Password: ")?;
+        let password = self.secure_password_input(stream, "Password: ")?;
 
             // Try to authenticate
             match self.services.users.authenticate(&username, &password)? {
@@ -662,7 +802,7 @@ Location: {}
             stream,
             &render.title,
             &render.items,
-            self.config.ui.menu_width,
+            self.effective_width,
             None,
         )?;
         Ok(())
@@ -683,7 +823,7 @@ Location: {}
             stream,
             title,
             message,
-            self.config.ui.menu_width,
+            self.effective_width,
             color,
         )?;
 
@@ -710,7 +850,7 @@ Location: {}
             stream,
             "GOODBYE",
             &goodbye_msg,
-            self.config.ui.menu_width,
+            self.effective_width,
             Some(Color::Magenta),
         )?;
 
