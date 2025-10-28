@@ -213,5 +213,3 @@ impl PasswordHash for PasswordHasher {
 //             .map_err(|e| BbsError::AuthenticationFailed(e.to_string()))
 //     }
 // }
-
-

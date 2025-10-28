@@ -51,8 +51,7 @@ fn test_registration_validation() {
     assert!(invalid_req.validate(&config).is_err());
 
     // Short password
-    let invalid_req =
-        RegistrationRequest::new("validuser".to_string(), None, "123".to_string());
+    let invalid_req = RegistrationRequest::new("validuser".to_string(), None, "123".to_string());
     assert!(invalid_req.validate(&config).is_err());
 }
 
@@ -77,8 +76,7 @@ fn test_duplicate_username() {
     let (mut storage, _temp_dir) = create_test_storage();
     let config = BbsConfig::default();
 
-    let request =
-        RegistrationRequest::new("testuser".to_string(), None, "password123".to_string());
+    let request = RegistrationRequest::new("testuser".to_string(), None, "password123".to_string());
 
     // First registration should succeed
     storage.register_user(&request, &config).unwrap();
@@ -93,8 +91,7 @@ fn test_user_authentication() {
     let (mut storage, _temp_dir) = create_test_storage();
     let config = BbsConfig::default();
 
-    let request =
-        RegistrationRequest::new("testuser".to_string(), None, "password123".to_string());
+    let request = RegistrationRequest::new("testuser".to_string(), None, "password123".to_string());
 
     storage.register_user(&request, &config).unwrap();
 

@@ -42,7 +42,7 @@ fn test_message_read_marking() {
     );
 
     assert!(message.is_unread());
-    
+
     message.mark_read();
     assert!(!message.is_unread());
     assert!(message.read_at.is_some());

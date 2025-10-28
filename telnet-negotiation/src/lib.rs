@@ -1,0 +1,115 @@
+//! # Telnet Negotiation Library
+//!
+//! A Rust library for implementing Telnet protocol negotiation as defined in:
+//! - RFC 854: Telnet Protocol Specification (https://tools.ietf.org/html/rfc854)
+//! - RFC 1143: The Q Method of Implementing TELNET Option Negotiation
+//! - Various option-specific RFCs (857, 1091, etc.)
+//!
+//! This library is designed to be:
+//! - **Extensible**: Support for MUSH/MUD protocols (MCCP, MXP, GMCP, etc.)
+//! - **Non-blocking**: Integrate with existing I/O patterns
+//! - **Standards-compliant**: Follow RFCs precisely
+//!
+//! ## Architecture Overview
+//!
+//! The library is organized into several modules:
+//! - `protocol`: Basic Telnet protocol constants and types (RFC 854)
+//! - `negotiation`: Core negotiation logic (RFC 1143 Q-method)
+//! - `stream`: TelnetStream wrapper for transparent integration
+//! - `options`: Individual option implementations (Echo, Terminal Type, etc.)
+//!
+//! ## Phase 6: Specific Telnet Options  
+//!
+//! This version implements core telnet options with complete sub-negotiation support
+//! and high-level API for BBS integration. Each phase incrementally adds features
+//! while maintaining backward compatibility.
+//!
+//! ### Available Features:
+//! - Complete Telnet command set (IAC, WILL, WONT, DO, DONT, etc.)
+//! - **Phase 6**: Echo Option (RFC 857) for secure password input
+//! - **Phase 6**: Terminal Type Option (RFC 1091) for capability detection
+//! - **Phase 6**: NAWS Option (RFC 1073) for window size negotiation
+//! - **Phase 6**: Sub-negotiation framework with automatic routing
+//! - **Phase 6**: High-level API methods for common BBS operations
+//! - MUSH/MUD protocol extensions (MCCP, MXP, GMCP, etc.)
+//! - Command and option serialization/deserialization
+//! - IAC sequence detection and parsing from byte streams
+//! - Data/command separation with stateful parsing
+//! - Sub-negotiation sequence handling with option-specific routing
+//! - RFC 1143 compliant option negotiation state machine
+//! - Loop-free WILL/WONT/DO/DONT handling
+//! - Queue system for rapid option changes
+//! - Automatic response generation and transmission
+//! - TelnetStream wrapper for transparent operation
+//! - Drop-in replacement for TcpStream with automatic telnet handling
+//! - Read/Write traits for backward compatibility
+//! - RFC compliance checking and categorization
+
+// Re-export main types for convenience
+pub use negotiation::{NegotiationResult, OptionNegotiator, OptionState, QueueState, Side};
+pub use options::{EchoOption, EchoState, NawsOption, TerminalTypeOption, WindowSize};
+pub use parser::{ParseResult, TelnetParser};
+pub use protocol::{IAC, TelnetCommand, TelnetOption, TelnetSequence};
+pub use stream::{ColorDepth, TelnetStream, TerminalCapabilities}; // Phase 6: ✅ Enhanced Stream + Options
+
+// Module declarations - implemented incrementally
+pub mod negotiation; // Phase 4: ✅ Option negotiation state machine (RFC 1143)
+pub mod options; // Phase 6: ✅ Individual option implementations
+pub mod parser; // Phase 3: ✅ Command detection and parsing
+pub mod protocol; // Phase 2: ✅ Protocol constants and types
+pub mod stream; // Phase 5: ✅ TelnetStream wrapper
+
+/// Library version information
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Supported Telnet RFCs
+pub const SUPPORTED_RFCS: &[&str] = &[
+    "RFC 854 - Telnet Protocol Specification",
+    "RFC 855 - Telnet Option Specifications",
+    "RFC 856 - Telnet Binary Transmission",
+    "RFC 857 - Telnet Echo Option",
+    "RFC 858 - Telnet Suppress Go Ahead Option",
+    "RFC 859 - Telnet Status Option",
+    "RFC 860 - Telnet Timing Mark Option",
+    "RFC 1073 - Telnet Window Size Option",
+    "RFC 1079 - Telnet Terminal Speed Option",
+    "RFC 1091 - Telnet Terminal-Type Option",
+    "RFC 1096 - Telnet X Display Location Option",
+    "RFC 1184 - Telnet Linemode Option",
+    "RFC 1571 - Telnet Environment Option",
+    "RFC 1143 - The Q Method of Implementing TELNET Option Negotiation",
+];
+
+/// Phase 1 verification function
+///
+/// This function exists solely to verify that the library crate is properly
+/// structured and can be imported. It will be removed in later phases.
+pub fn verify_library_structure() -> &'static str {
+    "telnet-negotiation library structure initialized successfully"
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_library_initialization() {
+        let result = verify_library_structure();
+        assert_eq!(
+            result,
+            "telnet-negotiation library structure initialized successfully"
+        );
+    }
+
+    #[test]
+    fn test_version_available() {
+        assert!(!VERSION.is_empty());
+        assert_eq!(VERSION, "0.6.0");
+    }
+
+    #[test]
+    fn test_rfc_list() {
+        assert!(!SUPPORTED_RFCS.is_empty());
+        assert!(SUPPORTED_RFCS.contains(&"RFC 854 - Telnet Protocol Specification"));
+    }
+}

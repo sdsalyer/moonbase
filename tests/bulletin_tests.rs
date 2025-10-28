@@ -64,4 +64,3 @@ fn test_bulletin_posting_and_reading() -> BbsResult<()> {
 
     Ok(())
 }
-

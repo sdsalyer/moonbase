@@ -32,7 +32,10 @@ pub enum MenuAction {
     // Bulletin-specific actions
     BulletinPost,
     BulletinRead(u32),
-    BulletinSubmit { title: String, content: String },
+    BulletinSubmit {
+        title: String,
+        content: String,
+    },
     BulletinPostContent(String),
     BulletinList,
     BulletinBackToMenu,
@@ -44,7 +47,11 @@ pub enum MenuAction {
     MessageSent,
     MessageCompose,
     MessageComposeSubject(String),
-    MessageSend { recipient: String, subject: String, content: String },
+    MessageSend {
+        recipient: String,
+        subject: String,
+        content: String,
+    },
     MessageRead(u32),
     MessageDelete(u32),
     MessageBackToMenu,

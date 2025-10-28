@@ -34,10 +34,10 @@ impl MessageService {
 
     pub fn read_message(&self, id: u32, username: &str) -> BbsResult<Option<PrivateMessage>> {
         let mut storage = self.storage.lock().unwrap();
-        
+
         // Get the message first
         let message = storage.get_message(id, username)?;
-        
+
         // If it exists and the user is the recipient, mark it as read
         if let Some(ref msg) = message {
             if msg.recipient == username && msg.is_unread() {
@@ -46,7 +46,7 @@ impl MessageService {
                 return storage.get_message(id, username);
             }
         }
-        
+
         Ok(message)
     }
 

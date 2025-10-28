@@ -5,6 +5,19 @@ use std::fs;
 use std::time::Duration;
 
 #[derive(Debug, Clone)]
+pub enum WidthMode {
+    Auto,
+    Fixed,
+}
+
+#[derive(Debug, Clone)]
+pub enum AutoDetectOption {
+    Auto,
+    Enabled,
+    Disabled,
+}
+
+#[derive(Debug, Clone)]
 pub struct BbsConfig {
     pub server: ServerConfig,
     pub bbs: BbsInfo,
@@ -50,9 +63,14 @@ pub struct FeatureConfig {
 #[derive(Debug, Clone)]
 pub struct UIConfig {
     pub box_style: BoxStyle,
-    pub menu_width: usize,
     pub use_colors: bool,
     pub welcome_pause_ms: u64,
+    // Phase 7: Clean width configuration
+    pub width_mode: WidthMode,
+    pub width_value: usize,
+    pub ansi_support: AutoDetectOption,
+    pub color_support: AutoDetectOption,
+    pub adaptive_layout: bool,
 }
 
 impl Default for BbsConfig {
@@ -86,9 +104,14 @@ impl Default for BbsConfig {
             },
             ui: UIConfig {
                 box_style: BoxStyle::Ascii,
-                menu_width: 80,
                 use_colors: false,
                 welcome_pause_ms: 1500,
+                // Phase 7: Clean width configuration
+                width_mode: WidthMode::Auto,
+                width_value: 80,
+                ansi_support: AutoDetectOption::Auto,
+                color_support: AutoDetectOption::Auto,
+                adaptive_layout: true,
             },
         }
     }
@@ -182,8 +205,20 @@ impl BbsConfig {
                 self.ui.box_style = BoxStyle::from_str(value)
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
             }
-            "menu_width" => {
-                self.ui.menu_width = value
+            "width_mode" => {
+                self.ui.width_mode = match value {
+                    "auto" => WidthMode::Auto,
+                    "fixed" => WidthMode::Fixed,
+                    _ => {
+                        return Err(ConfigError::InvalidValue(
+                            key.to_string(),
+                            value.to_string(),
+                        ));
+                    }
+                };
+            }
+            "width_value" => {
+                self.ui.width_value = value
                     .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
             }
@@ -197,6 +232,39 @@ impl BbsConfig {
                     .parse()
                     .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
             }
+
+            "ansi_support" => {
+                self.ui.ansi_support = match value {
+                    "auto" => AutoDetectOption::Auto,
+                    "true" => AutoDetectOption::Enabled,
+                    "false" => AutoDetectOption::Disabled,
+                    _ => {
+                        return Err(ConfigError::InvalidValue(
+                            key.to_string(),
+                            value.to_string(),
+                        ));
+                    }
+                };
+            }
+            "color_support" => {
+                self.ui.color_support = match value {
+                    "auto" => AutoDetectOption::Auto,
+                    "true" => AutoDetectOption::Enabled,
+                    "false" => AutoDetectOption::Disabled,
+                    _ => {
+                        return Err(ConfigError::InvalidValue(
+                            key.to_string(),
+                            value.to_string(),
+                        ));
+                    }
+                };
+            }
+            "adaptive_layout" => {
+                self.ui.adaptive_layout = value
+                    .parse()
+                    .map_err(|_| ConfigError::InvalidValue(key.to_string(), value.to_string()))?;
+            }
+
             _ => return Err(ConfigError::UnknownKey(key.to_string())),
         }
         Ok(())
@@ -302,12 +370,20 @@ bulletins_enabled = {}
 
 [ui]
 # User interface configuration
-# Box styles: "ascii" (telnet-safe), "single", "double", "rounded"
+# Box styles: "ascii" (telnet-safe), "single", "double", "rounded"  
 # Use "ascii" for best telnet compatibility
 box_style = "{}"
-menu_width = {}
 use_colors = {}
 welcome_pause_ms = {}
+
+# Phase 7: Terminal width configuration
+width_mode = "{}"          # "auto" or "fixed"
+width_value = {}           # Width in characters (fixed value or fallback for auto)
+
+# Phase 7: Terminal capability detection
+ansi_support = "{}"        # "auto", "true", "false"  
+color_support = "{}"       # "auto", "true", "false"
+adaptive_layout = {}       # Enable responsive design
 "#,
             self.server.telnet_port,
             self.server
@@ -335,9 +411,24 @@ welcome_pause_ms = {}
                 // BoxStyleName::Rounded => "rounded",
                 BoxStyle::Ascii => "ascii",
             },
-            self.ui.menu_width,
             self.ui.use_colors,
             self.ui.welcome_pause_ms,
+            match &self.ui.width_mode {
+                WidthMode::Auto => "auto",
+                WidthMode::Fixed => "fixed",
+            },
+            self.ui.width_value,
+            match &self.ui.ansi_support {
+                AutoDetectOption::Auto => "auto",
+                AutoDetectOption::Enabled => "true",
+                AutoDetectOption::Disabled => "false",
+            },
+            match &self.ui.color_support {
+                AutoDetectOption::Auto => "auto",
+                AutoDetectOption::Enabled => "true",
+                AutoDetectOption::Disabled => "false",
+            },
+            self.ui.adaptive_layout,
         )
     }
 }

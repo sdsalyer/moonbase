@@ -22,8 +22,8 @@ use user_repository::JsonUserStorage;
 
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 /// Moonbase entry point
@@ -90,8 +90,7 @@ fn main() -> BbsResult<()> {
         user_storage.clone() as Arc<Mutex<dyn crate::user_repository::UserStorage + Send>>,
         bulletin_storage.clone()
             as Arc<Mutex<dyn crate::bulletin_repository::BulletinStorage + Send>>,
-        message_storage.clone()
-            as Arc<Mutex<dyn crate::message_repository::MessageStorage + Send>>,
+        message_storage.clone() as Arc<Mutex<dyn crate::message_repository::MessageStorage + Send>>,
     ));
 
     // Start the server
@@ -119,7 +118,7 @@ fn main() -> BbsResult<()> {
     // Accept connections with proper connection tracking
     let connection_count = Arc::new(AtomicU32::new(0));
     let mut connection_id = 0u32;
-    
+
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -131,8 +130,10 @@ fn main() -> BbsResult<()> {
 
                 // Check connection limit
                 if current_connections as usize > config.server.max_connections {
-                    eprintln!("!  Connection limit reached ({}/{}), rejecting connection", 
-                             current_connections, config.server.max_connections);
+                    eprintln!(
+                        "!  Connection limit reached ({}/{}), rejecting connection",
+                        current_connections, config.server.max_connections
+                    );
                     let _ = show_rejection(stream, config);
                     connection_count.fetch_sub(1, Ordering::Relaxed);
                     continue;
@@ -142,8 +143,10 @@ fn main() -> BbsResult<()> {
                 let peer_addr = stream
                     .peer_addr()
                     .unwrap_or_else(|_| "unknown".parse().unwrap());
-                println!("> New connection #{} from: {} ({}/{})", 
-                        connection_id, peer_addr, current_connections, config.server.max_connections);
+                println!(
+                    "> New connection #{} from: {} ({}/{})",
+                    connection_id, peer_addr, current_connections, config.server.max_connections
+                );
 
                 // Clone services and connection counter for this thread
                 let services = Arc::clone(&services);
@@ -162,13 +165,17 @@ fn main() -> BbsResult<()> {
                     match handle_client(stream, config, services) {
                         Ok(()) => {
                             let remaining = conn_counter.fetch_sub(1, Ordering::Relaxed) - 1;
-                            println!("> Client {} disconnected normally ({} connections remaining)", 
-                                   peer_addr, remaining);
-                        },
+                            println!(
+                                "> Client {} disconnected normally ({} connections remaining)",
+                                peer_addr, remaining
+                            );
+                        }
                         Err(e) => {
                             let remaining = conn_counter.fetch_sub(1, Ordering::Relaxed) - 1;
-                            eprintln!("! Error handling client {}: {} ({} connections remaining)", 
-                                    peer_addr, e, remaining);
+                            eprintln!(
+                                "! Error handling client {}: {} ({} connections remaining)",
+                                peer_addr, e, remaining
+                            );
                         }
                     }
                 });
@@ -189,8 +196,10 @@ fn handle_client(
     config: Arc<BbsConfig>,
     services: Arc<CoreServices>,
 ) -> BbsResult<()> {
+    // Phase 5: Wrap TcpStream with TelnetStream for transparent telnet handling
+    let telnet_stream = telnet_negotiation::TelnetStream::new(stream);
     let mut session = BbsSession::new(config, services);
-    session.run(stream)
+    session.run(telnet_stream)
 }
 
 /// Show Server startup messages in console log
@@ -224,7 +233,8 @@ fn print_startup_banner(config: &BbsConfig) -> BbsResult<()> {
         "".to_string(),
         "UI Settings:".to_string(),
         format!("  Box Style: {:?}", config.ui.box_style),
-        format!("  Menu Width: {}", config.ui.menu_width),
+        format!("  Width Mode: {:?}", config.ui.width_mode),
+        format!("  Width Value: {}", config.ui.width_value),
         format!(
             "  Colors: {}",
             if config.ui.use_colors {
@@ -255,7 +265,7 @@ fn show_rejection(mut stream: TcpStream, config: Arc<BbsConfig>) -> BbsResult<()
         &mut stream,
         "SERVER BUSY",
         message,
-        config.ui.menu_width,
+        config.ui.width_value,
         Some(crossterm::style::Color::Red),
     )?;
 
