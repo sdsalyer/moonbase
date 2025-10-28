@@ -57,9 +57,8 @@ impl JsonMessageStorage {
             return Ok(());
         }
 
-        let content = fs::read_to_string(&self.messages_file).map_err(|e| {
-            BbsError::Configuration(format!("Failed to read messages file: {}", e))
-        })?;
+        let content = fs::read_to_string(&self.messages_file)
+            .map_err(|e| BbsError::Configuration(format!("Failed to read messages file: {}", e)))?;
 
         if content.trim().is_empty() {
             let empty_messages: HashMap<u32, PrivateMessage> = HashMap::new();
@@ -67,8 +66,10 @@ impl JsonMessageStorage {
             return Ok(());
         }
 
-        let messages: HashMap<u32, PrivateMessage> = serde_json::from_str(&content)
-            .map_err(|e| BbsError::Configuration(format!("Failed to parse messages file: {}", e)))?;
+        let messages: HashMap<u32, PrivateMessage> =
+            serde_json::from_str(&content).map_err(|e| {
+                BbsError::Configuration(format!("Failed to parse messages file: {}", e))
+            })?;
 
         self.next_id = messages.keys().max().unwrap_or(&0) + 1;
         self.messages_cache = messages;

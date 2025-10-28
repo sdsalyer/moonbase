@@ -311,5 +311,3 @@ impl BulletinStorage for JsonBulletinStorage {
         self.get_stats(current_user)
     }
 }
-
-

@@ -167,7 +167,9 @@ impl MessageRequest {
 
     pub fn validate(&self, config: &crate::config::BbsConfig) -> BbsResult<()> {
         if self.recipient.trim().is_empty() {
-            return Err(BbsError::InvalidInput("Recipient cannot be empty".to_string()));
+            return Err(BbsError::InvalidInput(
+                "Recipient cannot be empty".to_string(),
+            ));
         }
 
         if self.recipient.len() > config.features.max_username_length {
@@ -178,7 +180,9 @@ impl MessageRequest {
         }
 
         if self.subject.trim().is_empty() {
-            return Err(BbsError::InvalidInput("Subject cannot be empty".to_string()));
+            return Err(BbsError::InvalidInput(
+                "Subject cannot be empty".to_string(),
+            ));
         }
 
         if self.subject.len() > 100 {
@@ -188,7 +192,9 @@ impl MessageRequest {
         }
 
         if self.content.trim().is_empty() {
-            return Err(BbsError::InvalidInput("Message content cannot be empty".to_string()));
+            return Err(BbsError::InvalidInput(
+                "Message content cannot be empty".to_string(),
+            ));
         }
 
         if self.content.len() > config.features.max_message_length {

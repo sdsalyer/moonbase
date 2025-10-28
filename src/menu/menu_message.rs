@@ -238,7 +238,7 @@ fn render_message(session: &BbsSession, message: &PrivateMessage) -> MenuRender 
     ];
 
     // Add message content, wrapped to fit menu width
-    let content_width = session.config.ui.menu_width.saturating_sub(4);
+    let content_width = session.effective_width().saturating_sub(4);
     let content_lines = message.get_content_lines(content_width);
 
     for line in content_lines {
@@ -364,4 +364,3 @@ fn handle_reading_input(_session: &BbsSession, input: &str) -> MenuAction {
         _ => MenuAction::ShowMessage("Invalid choice. Please try again.".to_string()),
     }
 }
-

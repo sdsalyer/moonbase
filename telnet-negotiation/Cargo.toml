@@ -1,0 +1,21 @@
+[package]
+name = "telnet-negotiation"
+version = "0.6.0"
+edition = "2024"
+authors = ["b3rts <dev@b3rts.dev>"]
+description = "A Rust library for Telnet protocol negotiation with Echo, Terminal Type, and NAWS options"
+license = "GPL-3.0"
+homepage = "https://github.com/sdsalyer/moonbase"
+repository = "https://github.com/sdsalyer/moonbase"
+keywords = ["telnet", "negotiation", "protocol", "bbs", "terminal"]
+categories = ["network-programming"]
+
+[lib]
+name = "telnet_negotiation"
+path = "src/lib.rs"
+
+[dependencies]
+# Pure Rust implementation with no external dependencies
+
+[dev-dependencies]
+# Testing utilities for Phase 6 comprehensive test suite

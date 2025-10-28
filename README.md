@@ -1,6 +1,6 @@
 # Moonbase BBS (Bulletin Board System)
 
-A traditional BBS implementation in Rust that accepts connections over SSH and Telnet.
+A modern traditional BBS implementation in Rust with intelligent telnet protocol support and adaptive terminal capabilities.
 
 ## Project Goals
 - Learn Rust network programming fundamentals
@@ -20,17 +20,20 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 
 ### Core Infrastructure
 - [x] Project setup
-- [x] Telnet connection handling with proper error handling
+- [x] Advanced telnet protocol support with RFC-compliant option negotiation
+- [x] Intelligent terminal capability detection and adaptive UI
 - [x] Multi-threaded connection management
 - [x] Configurable BBS system via `bbs.conf`
 - [x] Clean modular architecture
-- [x] Unit testing framework (8 tests passing)
+- [x] Comprehensive testing framework (24 tests passing)
 
 ### User Interface System
-- [x] Configurable box-drawing system (ASCII, single, double, rounded styles)
-- [x] Menu system with navigation
-- [x] Color support (configurable)
-- [x] Simple BBS-style interface
+- [x] Adaptive terminal width detection using NAWS (RFC 1073)
+- [x] Smart color support based on terminal capabilities
+- [x] Intelligent ANSI support detection and box style selection
+- [x] Configurable box-drawing system with automatic fallbacks
+- [x] Menu system with responsive layout
+- [x] Retro BBS-style interface with modern enhancements
 
 ### Menu System
 - [x] Main menu with user status display
@@ -41,25 +44,30 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 - [x] Feature-aware menus (hide disabled features)
 
 ### Session Management
-- [x] Basic user session tracking
+- [x] Secure password input with telnet echo negotiation (RFC 857)
+- [x] Terminal capability negotiation during session startup
+- [x] Advanced user session tracking with terminal state management
 - [x] User registration and persistent storage
-- [x] Login/logout functionality (demo implementation)
+- [x] Secure authentication with masked password input
 - [x] Anonymous access control
 - [x] Connection timeout handling
 - [x] Graceful connection cleanup
 
 ### Configuration System
-- [x] Full configuration via INI-style file
+- [x] Auto-detection configuration options with manual overrides
+- [x] Responsive layout configuration with fallback options
+- [x] Full configuration via INI-style file with backward compatibility
 - [x] Server settings (ports, timeouts, connection limits)
 - [x] BBS branding and information
 - [x] Feature toggles
-- [x] UI customization (box styles, colors, dimensions)
+- [x] Advanced UI customization (adaptive width, smart colors, ANSI detection)
 
-## User System
+### User System
+- [x] Secure user registration with masked password input
 - [x] User registration with validation
 - [x] User data persistence (file-based)
 - [ ] User profiles and preferences
-- [x] Password authentication
+- [x] Enhanced password authentication with telnet echo control
 
 ### Bulletin System
 - [x] Create and post new bulletins
@@ -73,18 +81,40 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 - [x] Full menu navigation and state management
 
 ## BBS Core Features
-- [x] Bulletin posting and reading
-- [ ] User-to-user messaging
+- [x] Responsive bulletin display with adaptive width
+- [x] Bulletin posting and reading with full menu navigation
+- [x] Private messaging system (basic implementation)
 - [ ] File upload/download system
 - [ ] Online user tracking
 - [ ] User directory with search
 
 ## Advanced Features
+- [x] Full telnet protocol negotiation (RFC 854, 857, 1073, 1091)
+- [x] Terminal capability detection and adaptive rendering
 - [ ] SSH support (alongside Telnet)
 - [ ] System administration features
 - [ ] Message threading and organization
 - [ ] File categorization and search
 - [ ] User permissions and groups
+
+## Enhanced Telnet Integration ✨
+
+### Terminal Capability Detection
+- **Auto-detect terminal width** using NAWS option (RFC 1073)
+- **Smart ANSI support detection** from terminal type (RFC 1091)
+- **Intelligent color support** based on terminal capabilities
+- **Graceful degradation** for limited terminals
+
+### Security Enhancements  
+- **Secure password input** with telnet echo negotiation (RFC 857)
+- **Masked authentication** during login and registration
+- **RFC-compliant** telnet option handling
+
+### Responsive Design
+- **Adaptive UI layouts** that respond to terminal width
+- **Smart box drawing** with ANSI fallbacks
+- **Dynamic color themes** based on terminal capabilities
+- **Consistent experience** across diverse terminal types
 
 # Architecture
 
@@ -92,19 +122,41 @@ A traditional BBS implementation in Rust that accepts connections over SSH and T
 ```
 src/
 ├── main.rs                  # Server startup and connection handling
-├── config.rs                # Configuration management 
+├── config.rs                # Enhanced configuration with Phase 7 auto-detection
 ├── errors.rs                # Custom error types
-├── box_renderer.rs          # UI rendering system
-├── session.rs               # Session management and I/O
+├── box_renderer.rs          # Adaptive UI rendering system
+├── session.rs               # Session management with telnet capability detection
 ├── users.rs                 # User data types and validation
 ├── user_repository.rs       # User storage and authentication
 ├── bulletins.rs             # Bulletin data types and validation
 ├── bulletin_repository.rs   # Bulletin storage and statistics
-└── menu/                    # Menu system
+├── messages.rs              # Private message data types
+├── message_repository.rs    # Message storage and management
+├── services/                # Service layer for business logic
+│   ├── mod.rs
+│   ├── bulletin_service.rs
+│   ├── message_service.rs
+│   └── user_service.rs
+└── menu/                    # Responsive menu system
     ├── mod.rs               # Menu traits and common types
     ├── menu_main.rs         # Main menu implementation
-    ├── menu_bulletin.rs     # Bulletin board menu (IMPLEMENTED)
-    └── menu_user.rs         # User directory menu
+    ├── menu_bulletin.rs     # Bulletin board menu (FULLY IMPLEMENTED)
+    ├── menu_user.rs         # User directory menu
+    └── menu_message.rs      # Private messaging menu
+
+telnet-negotiation/          # RFC-compliant telnet library
+├── src/
+│   ├── lib.rs              # Library entry point and exports
+│   ├── protocol.rs         # Telnet protocol constants (RFC 854)
+│   ├── parser.rs           # Command parsing and data separation  
+│   ├── negotiation.rs      # Option negotiation state machine (RFC 1143)
+│   ├── stream.rs           # TelnetStream wrapper with high-level API
+│   └── options/            # Specific option implementations
+│       ├── mod.rs
+│       ├── echo.rs         # Echo option (RFC 857) for secure passwords
+│       ├── terminal_type.rs # Terminal Type (RFC 1091) for capabilities
+│       └── naws.rs         # Window Size (RFC 1073) for responsive layout
+└── examples/               # Protocol demonstration programs
 ```
 
 ## Design Principles
@@ -208,15 +260,40 @@ telnet_port = 2323
 max_connections = 50
 
 [ui]
-box_style = "double"    # double, single, rounded, ascii
-menu_width = 42
-use_colors = true
+# User interface configuration
+box_style = "ascii"          # "ascii" (recommended for compatibility)
+use_colors = false           # Force colors on/off
+
+# Phase 7: Clean width configuration  
+width_mode = "auto"          # "auto" or "fixed"
+width_value = 80             # Width in characters (fixed value or fallback for auto)
+
+# Phase 7: Terminal capability detection
+ansi_support = "auto"        # "auto", "true", "false"  
+color_support = "auto"       # "auto", "true", "false"
+adaptive_layout = true       # Enable responsive design
 
 [features]
 allow_anonymous = true
 bulletins_enabled = true
 file_uploads_enabled = true
 ```
+
+### Phase 7 Configuration Guide
+
+**Clean Width Configuration:**
+- `width_mode = "auto"` - Automatically detects client terminal width using NAWS
+- `width_mode = "fixed"` - Uses fixed width specified in `width_value`
+- `width_value = 80` - Width in characters (fixed value or fallback when auto-detection fails)
+
+**Auto-Detection Options:**
+- `ansi_support = "auto"` - Detects ANSI capabilities from terminal type
+- `color_support = "auto"` - Enables colors based on terminal capabilities  
+- `adaptive_layout = true` - Enables responsive menu layouts
+
+**Manual Override Options:**
+- Use `"true"/"false"` instead of `"auto"` to force specific behavior
+- All configuration is backward compatible with graceful fallbacks
 
 # Learning Focus Areas Covered
 - [x] TCP socket programming with `std::net`
@@ -227,5 +304,8 @@ file_uploads_enabled = true
 - [x] Modular architecture design
 - [x] Rust traits and polymorphism
 - [x] Data persistence and serialization
-- [ ] Telnet negotiation
+- [x] Advanced telnet protocol negotiation (RFC 854, 857, 1073, 1091)
+- [x] State machines and protocol implementation
+- [x] Network protocol parsing and byte stream handling
+- [x] Adaptive system design with capability detection
 - [ ] SSH implementation
